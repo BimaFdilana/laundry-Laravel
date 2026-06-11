@@ -17,8 +17,23 @@
             <div class="card">
                 <div class="card-body">
                     <h4 class="card-title"> Data Transaksi Satuan</h4>
+
+                    <form method="GET" action="{{ route('transaksi.indexsatuan') }}" class="form-inline mb-3">
+                        <input type="text" name="search" class="form-control mr-2" placeholder="Cari invoice/customer..."
+                            value="{{ request('search') }}">
+                        <input type="date" name="dari" class="form-control mr-2" value="{{ request('dari') }}">
+                        <span class="mr-2">s/d</span>
+                        <input type="date" name="sampai" class="form-control mr-2" value="{{ request('sampai') }}">
+                        <button type="submit" class="btn btn-info mr-2">Filter</button>
+                        @if (request()->hasAny(['search', 'dari', 'sampai']))
+                            <a href="{{ route('transaksi.indexsatuan') }}" class="btn btn-secondary">Reset</a>
+                        @endif
+                    </form>
+
+                    <p class="text-muted">Menampilkan {{ $transaksiSatuan->firstItem() ?? 0 }} - {{ $transaksiSatuan->lastItem() ?? 0 }} dari {{ $transaksiSatuan->total() }} transaksi satuan</p>
+
                     <div class="table-responsive m-t-0">
-                        <table id="myTable" class="table display table-bordered table-striped">
+                        <table class="table display table-bordered table-striped">
                             <thead>
                                 <tr>
                                     <th>#</th>
@@ -33,10 +48,9 @@
                                 </tr>
                             </thead>
                             <tbody id="refresh_body">
-                                {{-- Transaksi Satuan --}}
-                                @foreach ($transaksiSatuan as $key => $item)
+                                @foreach ($transaksiSatuan as $item)
                                     <tr>
-                                        <td>{{ $key + 1 }}</td>
+                                        <td>{{ $loop->iteration + ($transaksiSatuan->currentPage() - 1) * $transaksiSatuan->perPage() }}</td>
                                         <td>{{ \Carbon\Carbon::parse($item->tgl_transaksi)->format('d-m-y') }}</td>
                                         <td>{{ $item->customer }}</td>
                                         <td>
@@ -57,7 +71,7 @@
                                         </td>
                                         <td>
                                             @foreach ($item->details as $detail)
-                                                • {{ $detail->satuan->pcs ?? '-' }}
+                                                • {{ $detail->pcs ?? '-' }}
                                                 <br>
                                             @endforeach
                                         </td>
@@ -71,44 +85,12 @@
                             </tbody>
                         </table>
                     </div>
+
+                    <div class="mt-3">
+                        {{ $transaksiSatuan->links() }}
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-@endsection
-@section('scripts')
-    <script type="text/javascript">
-        $(document).ready(function() {
-            $('#myTable').DataTable();
-            $(document).ready(function() {
-                var table = $('#example').DataTable({
-                    "columnDefs": [{
-                        "visible": false,
-                        "targets": 2
-                    }],
-                    "order": [
-                        [2, 'asc']
-                    ],
-                    "displayLength": 25,
-                    "drawCallback": function(settings) {
-                        var api = this.api();
-                        var rows = api.rows({
-                            page: 'current'
-                        }).nodes();
-                        var last = null;
-                        api.column(2, {
-                            page: 'current'
-                        }).data().each(function(group, i) {
-                            if (last !== group) {
-                                $(rows).eq(i).before(
-                                    '<tr class="group"><td colspan="5">' + group +
-                                    '</td></tr>');
-                                last = group;
-                            }
-                        });
-                    }
-                });
-            });
-        });
-    </script>
 @endsection

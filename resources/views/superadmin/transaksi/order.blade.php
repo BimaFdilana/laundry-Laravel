@@ -31,8 +31,28 @@
     <div class="card">
         <div class="card-body">
             <h4 class="card-title">Transaksi</h4>
+
+            <form method="GET" action="{{ route('superadmin.transaksi') }}" class="form-inline mb-3">
+                <input type="text" name="search" class="form-control mr-2" placeholder="Cari invoice/customer..."
+                    value="{{ request('search') }}">
+                <input type="date" name="dari" class="form-control mr-2" value="{{ request('dari') }}">
+                <span class="mr-2">s/d</span>
+                <input type="date" name="sampai" class="form-control mr-2" value="{{ request('sampai') }}">
+                <select name="status_payment" class="form-control mr-2">
+                    <option value="">-- Status --</option>
+                    <option value="Pending" {{ request('status_payment') == 'Pending' ? 'selected' : '' }}>Belum Lunas</option>
+                    <option value="Success" {{ request('status_payment') == 'Success' ? 'selected' : '' }}>Lunas</option>
+                </select>
+                <button type="submit" class="btn btn-info mr-2">Filter</button>
+                @if (request()->hasAny(['search', 'dari', 'sampai', 'status_payment']))
+                    <a href="{{ route('superadmin.transaksi') }}" class="btn btn-secondary">Reset</a>
+                @endif
+            </form>
+
+            <p class="text-muted">Menampilkan {{ $order->firstItem() ?? 0 }} - {{ $order->lastItem() ?? 0 }} dari {{ $order->total() }} transaksi</p>
+
             <div class="table-responsive m-t-0">
-                <table id="myTable" class="table display table-bordered table-striped">
+                <table class="table display table-bordered table-striped">
                     <thead>
                         <tr>
                             <th>#</th>
@@ -42,36 +62,35 @@
                             <th>Karyawan</th>
                             <th>Jenis Laundri</th>
                             <th>Kg</th>
-                            <th>Jumlah Lembar Pakaian (pcs)</th>
+                            <th>Pcs</th>
                             <th>Hari</th>
                             <th>Total</th>
                             <th>Catatan Admin</th>
                             <th>Info Pembayaran</th>
                             <th>Status Payment</th>
                             <th>Status Order</th>
-                            <th>Keterangan Delivery</th>
+                            <th>Ket Delivery</th>
                             <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php $no = 1; ?>
                         @foreach ($order as $item)
                             <tr>
-                                <td>{{ $no }}</td>
+                                <td>{{ $loop->iteration + ($order->currentPage() - 1) * $order->perPage() }}</td>
                                 <td style="font-weight:bold;">{{ $item->invoice }}</td>
                                 <td>{{ \Carbon\Carbon::parse($item->tgl_transaksi)->format('d-m-y') }}</td>
                                 <td>{{ $item->customer }}</td>
-                                <td>{{ $item->karyawan ? $item->karyawan->name : 'Karyawan Tidak Tersedia' }}</td>
+                                <td>{{ $item->karyawan ? $item->karyawan->name : 'Tidak Tersedia' }}</td>
                                 <td>
-                                    {{ $item->price->nama ?? 'Nama Tidak Tersedia' }} -
-                                    {{ $item->price->jenis ?? 'Jenis Tidak Tersedia' }}
+                                    {{ $item->price->nama ?? '-' }} -
+                                    {{ $item->price->jenis ?? '-' }}
                                 </td>
                                 <td>{{ $item->kg }}</td>
                                 <td>{{ $item->jumlah_lembar_baju }}</td>
                                 <td>{{ $item->hari }}</td>
                                 <td>{{ Rupiah::getRupiah($item->harga_akhir) }}</td>
                                 <td>{{ $item->catatan_admin }}</td>
-                                <td>{{ $item->info_pembayaran ?? 'Info Pembayaran Tidak Tersedia' }}</td>
+                                <td>{{ $item->info_pembayaran ?? '-' }}</td>
                                 <td>
                                     @if ($item->status_payment == 'Pending')
                                         <a href="{{ route('superadmin.ubahstatusbayar', ['id' => $item->id, 'status_payment' => 'Success']) }}"
@@ -85,20 +104,16 @@
                                 </td>
                                 <td>
                                     @if ($item->status_order == 'Antrian')
-                                        <a class="btn btn-sm btn-warning"
-                                            style="pointer-events: none; cursor: default; color: white;">Antrian</a>
+                                        <span class="badge badge-warning">Antrian</span>
                                     @elseif ($item->status_order == 'Process')
-                                        <a class="btn btn-sm btn-primary"
-                                            style="pointer-events: none; cursor: default; color: white;">Proses</a>
+                                        <span class="badge badge-primary">Proses</span>
                                     @elseif($item->status_order == 'Done')
-                                        <a class="btn btn-sm btn-info"
-                                            style="pointer-events: none; cursor: default; color: white;">Selesai</a>
+                                        <span class="badge badge-info">Selesai</span>
                                     @elseif($item->status_order == 'Delivery')
-                                        <a class="btn btn-sm btn-success"
-                                            style="pointer-events: none; cursor: default; color: white;">Sudah Diambil</a>
+                                        <span class="badge badge-success">Sudah Diambil</span>
                                     @endif
                                 </td>
-                                <td>{{ $item->ket_delivery ?? 'Ket Deliv' }}</td>
+                                <td>{{ $item->ket_delivery ?? '-' }}</td>
                                 <td>
                                     <form action="{{ route('superadmin.transaksi.destroy', $item->id) }}" method="POST"
                                         onsubmit="return confirm('Yakin ingin menghapus transaksi ini?')">
@@ -108,50 +123,14 @@
                                     </form>
                                 </td>
                             </tr>
-                            <?php $no++; ?>
                         @endforeach
-
                     </tbody>
                 </table>
+            </div>
 
+            <div class="mt-3">
+                {{ $order->links() }}
             </div>
         </div>
     </div>
-@endsection
-@section('scripts')
-    <script type="text/javascript">
-        // DATATABLE
-        $(document).ready(function() {
-            $('#myTable').DataTable();
-            $(document).ready(function() {
-                var table = $('#example').DataTable({
-                    "columnDefs": [{
-                        "visible": false,
-                        "targets": 2
-                    }],
-                    "order": [
-                        [2, 'asc']
-                    ],
-                    "displayLength": 25,
-                    "drawCallback": function(settings) {
-                        var api = this.api();
-                        var rows = api.rows({
-                            page: 'current'
-                        }).nodes();
-                        var last = null;
-                        api.column(2, {
-                            page: 'current'
-                        }).data().each(function(group, i) {
-                            if (last !== group) {
-                                $(rows).eq(i).before(
-                                    '<tr class="group"><td colspan="5">' + group +
-                                    '</td></tr>');
-                                last = group;
-                            }
-                        });
-                    }
-                });
-            });
-        });
-    </script>
 @endsection
