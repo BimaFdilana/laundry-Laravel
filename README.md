@@ -2,6 +2,14 @@
 
 Aplikasi manajemen laundry berbasis Laravel untuk mengelola transaksi, pelanggan, karyawan, dan keuangan.
 
+## Screenshot
+
+### Landing Page
+![Landing Page](screenshots/Screenshot%202026-06-11%20at%2012.28.30.png)
+
+### Halaman Login
+![Login Page](screenshots/Screenshot%202026-06-11%20at%2012.28.46.png)
+
 ## Fitur Utama
 
 ### Manajemen Transaksi
