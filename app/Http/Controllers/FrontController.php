@@ -22,12 +22,24 @@ class FrontController extends Controller
   //Search
   public function search(Request $request)
   {
-      $search = Transaksi::where('invoice', $request->search_status);
-      if ($search->count() == 0) {
-          $return = 0;
-        }else{
-          $return = $search->first();
-        }
-        return $return;
+      $invoice = trim($request->search_status);
+
+      if (empty($invoice)) {
+          return 0;
+      }
+
+      $search = Transaksi::whereRaw('LOWER(invoice) = ?', [strtolower($invoice)])->first();
+
+      if ($search) {
+          return $search;
+      }
+
+      $searchSatuan = \App\Models\TransaksiSatuan::whereRaw('LOWER(invoice) = ?', [strtolower($invoice)])->first();
+
+      if ($searchSatuan) {
+          return $searchSatuan;
+      }
+
+      return 0;
   }
 }

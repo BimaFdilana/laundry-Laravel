@@ -14,20 +14,48 @@ class TransaksiController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index()
+    public function index(Request $request)
     {
-        $transaksiBiasa = Transaksi::with('price')
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $query = Transaksi::with('price')
+            ->orderBy('created_at', 'desc');
+
+        if ($request->filled('dari') && $request->filled('sampai')) {
+            $query->whereDate('created_at', '>=', $request->dari)
+                  ->whereDate('created_at', '<=', $request->sampai);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('invoice', 'LIKE', "%{$search}%")
+                  ->orWhere('customer', 'LIKE', "%{$search}%");
+            });
+        }
+
+        $transaksiBiasa = $query->paginate(50)->appends($request->query());
 
         return view('modul_admin.transaksi.index', compact('transaksiBiasa'));
     }
 
-    public function indexsatuan()
+    public function indexsatuan(Request $request)
     {
-        $transaksiSatuan = TransaksiSatuan::with('details')
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $query = TransaksiSatuan::with('details.satuan')
+            ->orderBy('created_at', 'desc');
+
+        if ($request->filled('dari') && $request->filled('sampai')) {
+            $query->whereDate('created_at', '>=', $request->dari)
+                  ->whereDate('created_at', '<=', $request->sampai);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('invoice', 'LIKE', "%{$search}%")
+                  ->orWhere('customer', 'LIKE', "%{$search}%");
+            });
+        }
+
+        $transaksiSatuan = $query->paginate(50)->appends($request->query());
 
         return view('modul_admin.transaksi.index_satuan', compact('transaksiSatuan'));
     }

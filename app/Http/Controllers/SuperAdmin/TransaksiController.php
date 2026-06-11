@@ -10,23 +10,55 @@ use Illuminate\Http\Request;
 
 class TransaksiController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        // Ambil data transaksi
-        $order = Transaksi::with(['price', 'karyawan'])->orderBy('id', 'DESC')->get();
+        $query = Transaksi::with(['price', 'karyawan'])->orderBy('id', 'DESC');
 
-        // Ambil semua karyawan
+        if ($request->filled('dari') && $request->filled('sampai')) {
+            $query->whereDate('created_at', '>=', $request->dari)
+                  ->whereDate('created_at', '<=', $request->sampai);
+        }
+
+        if ($request->filled('status_payment')) {
+            $query->where('status_payment', $request->status_payment);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('invoice', 'LIKE', "%{$search}%")
+                  ->orWhere('customer', 'LIKE', "%{$search}%");
+            });
+        }
+
+        $order = $query->paginate(50)->appends($request->query());
         $karyawans = Karyawan::all();
 
         return view('superadmin.transaksi.order', compact('order', 'karyawans'));
     }
 
-    public function satuan()
+    public function satuan(Request $request)
     {
-        // Ambil data transaksi satuan
-        $ordersatuan = TransaksiSatuan::with(['karyawan'])->orderBy('id', 'DESC')->get();
+        $query = TransaksiSatuan::with(['karyawan', 'details.satuan'])->orderBy('id', 'DESC');
 
-        // Ambil semua karyawan
+        if ($request->filled('dari') && $request->filled('sampai')) {
+            $query->whereDate('created_at', '>=', $request->dari)
+                  ->whereDate('created_at', '<=', $request->sampai);
+        }
+
+        if ($request->filled('status_payment')) {
+            $query->where('status_payment', $request->status_payment);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('invoice', 'LIKE', "%{$search}%")
+                  ->orWhere('customer', 'LIKE', "%{$search}%");
+            });
+        }
+
+        $ordersatuan = $query->paginate(50)->appends($request->query());
         $karyawans = Karyawan::all();
 
         return view('superadmin.transaksi.ordersatuan', compact('ordersatuan', 'karyawans'));

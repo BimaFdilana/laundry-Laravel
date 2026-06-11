@@ -280,7 +280,7 @@
                                         <h4 class="text-white mb-4">Cek Status Laundry Anda</h4>
                                         <div class="input-group">
                                             <input type="text" class="form-control" id="search_status"
-                                                placeholder="Masukkan ID Transaksi..."
+                                                placeholder="Masukkan Nomor Invoice (contoh: LC-260611-001)"
                                                 style="height: 65px; border-radius: 15px 0 0 15px; border: none; padding-left: 30px; font-size: 1.1rem;">
                                             <button id="search-btn" class="btn"
                                                 style="padding: 0 35px; border-radius: 0 15px 15px 0; background: var(--primary-color); color: white; border: none;">
