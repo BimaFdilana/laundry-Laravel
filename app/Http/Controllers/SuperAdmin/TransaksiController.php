@@ -53,4 +53,24 @@ class TransaksiController extends Controller
 
         return redirect()->route('superadmin.transaksisatuan')->with('success', 'Transaksi satuan beserta detailnya berhasil dihapus.');
     }
+
+    public function ubahstatusbayar(Request $request)
+    {
+        $transaksi = Transaksi::find($request->id);
+        $transaksi->update([
+            'status_payment' => $request->status_payment,
+        ]);
+
+        return redirect()->route('superadmin.transaksi')->with('success', 'Status Pembayaran Berhasil Diubah!');
+    }
+
+    public function ubahstatusbayarsatuan(Request $request)
+    {
+        $transaksi = TransaksiSatuan::find($request->id);
+        $transaksi->update([
+            'status_payment' => $request->status_payment,
+        ]);
+
+        return redirect()->route('superadmin.transaksisatuan')->with('success', 'Status Pembayaran Berhasil Diubah!');
+    }
 }

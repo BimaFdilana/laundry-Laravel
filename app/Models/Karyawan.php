@@ -23,4 +23,14 @@ class Karyawan extends Model
     {
         return $this->hasMany(Transaksi::class, 'karyawan_id');
     }
+
+    public function aktivitas()
+    {
+        return $this->hasMany(AktivitasKaryawan::class, 'karyawan_id');
+    }
+
+    public function rewards()
+    {
+        return $this->hasMany(RewardKaryawan::class, 'karyawan_id');
+    }
 }

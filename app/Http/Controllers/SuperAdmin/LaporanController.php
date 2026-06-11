@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
-use App\Models\{LaundrySetting, Transaksi, TransaksiSatuan};
+use App\Models\{LaundrySetting, Pemasukan, Transaksi, TransaksiSatuan};
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -530,5 +530,81 @@ class LaporanController extends Controller
             'detailKgPerJenis',
             'detailPcsPerJenis'
         ));
+    }
+
+    public function perbandingan()
+    {
+        $acuan = request('tanggal') ? Carbon::parse(request('tanggal')) : Carbon::now();
+
+        $hariIni = $acuan->copy();
+        $tahunLalu = $acuan->copy()->subYear();
+        $bulanLalu = $acuan->copy()->subMonth();
+
+        // === Data Paket ===
+        $paketHariIni = $this->dataPaket($hariIni);
+        $paketTahunLalu = $this->dataPaket($tahunLalu);
+        $paketBulanLalu = $this->dataPaket($bulanLalu);
+
+        // === Data Transaksi ===
+        $trxHariIni = $this->dataTransaksi($hariIni);
+        $trxTahunLalu = $this->dataTransaksi($tahunLalu);
+        $trxBulanLalu = $this->dataTransaksi($bulanLalu);
+
+        return view('superadmin.laporan.perbandingan', compact(
+            'hariIni',
+            'tahunLalu',
+            'bulanLalu',
+            'paketHariIni',
+            'paketTahunLalu',
+            'paketBulanLalu',
+            'trxHariIni',
+            'trxTahunLalu',
+            'trxBulanLalu'
+        ));
+    }
+
+    private function dataPaket(Carbon $tanggal)
+    {
+        // Total kg & nominal dari transaksi layanan PAKET
+        $trxPaket = Transaksi::join('hargas', 'transaksis.harga_id', '=', 'hargas.id')
+            ->whereRaw('LOWER(hargas.nama) = ?', ['paket'])
+            ->whereDate('transaksis.created_at', $tanggal->toDateString())
+            ->selectRaw('COALESCE(SUM(transaksis.kg), 0) as total_kg, COALESCE(SUM(transaksis.harga_akhir), 0) as total_nominal')
+            ->first();
+
+        // Pemasukan kuota/paket (manual)
+        $pemasukanPaket = Pemasukan::where(function ($q) {
+                $q->where('kategori', 'LIKE', '%kuota%')
+                    ->orWhere('kategori', 'LIKE', '%paket%');
+            })
+            ->where(function ($q) use ($tanggal) {
+                $q->whereDate('tanggal', $tanggal->toDateString())
+                    ->orWhere(function ($qq) use ($tanggal) {
+                        $qq->whereNull('tanggal')->whereDate('created_at', $tanggal->toDateString());
+                    });
+            })
+            ->selectRaw('COALESCE(SUM(jumlah), 0) as total_kg, COALESCE(SUM(total), 0) as total_nominal')
+            ->first();
+
+        return [
+            'total_kg' => (float) $trxPaket->total_kg + (float) $pemasukanPaket->total_kg,
+            'total_nominal' => (int) $trxPaket->total_nominal + (int) $pemasukanPaket->total_nominal,
+        ];
+    }
+
+    private function dataTransaksi(Carbon $tanggal)
+    {
+        $reg = Transaksi::whereDate('created_at', $tanggal->toDateString())
+            ->selectRaw('COUNT(*) as jumlah, COALESCE(SUM(CASE WHEN status_payment = "Success" THEN harga_akhir ELSE 0 END), 0) as total_nominal')
+            ->first();
+
+        $sat = TransaksiSatuan::whereDate('created_at', $tanggal->toDateString())
+            ->selectRaw('COUNT(*) as jumlah, COALESCE(SUM(CASE WHEN status_payment = "Success" THEN harga_akhir ELSE 0 END), 0) as total_nominal')
+            ->first();
+
+        return [
+            'jumlah' => (int) $reg->jumlah + (int) $sat->jumlah,
+            'total_nominal' => (int) $reg->total_nominal + (int) $sat->total_nominal,
+        ];
     }
 }

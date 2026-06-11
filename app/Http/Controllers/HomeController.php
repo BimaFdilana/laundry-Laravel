@@ -63,6 +63,11 @@ class HomeController extends Controller
                 $diambil = Transaksi::where('status_order', 'Delivery')->count();
                 $sudahbayar = Transaksi::where('status_payment', 'Success')->count();
                 $belumbayar = Transaksi::where('status_payment', 'Pending')->count();
+
+                // Total Piutang (belum lunas)
+                $totalPiutang = Transaksi::where('status_payment', 'Pending')->sum('harga_akhir')
+                    + TransaksiSatuan::where('status_payment', 'Pending')->sum('harga_akhir')
+                    + Pemasukan::where('keterangan', 'LIKE', '%nyusul%')->sum('total');
                 $data = DB::table("transaksis")
                     ->select("id", DB::raw("(COUNT(*)) as customer"))
                     ->orderBy('created_at')
@@ -122,6 +127,7 @@ class HomeController extends Controller
                     ->with('selesai', $selesai)
                     ->with('sudahbayar', $sudahbayar)
                     ->with('belumbayar', $belumbayar)
+                    ->with('totalPiutang', $totalPiutang)
                     ->with('_tanggal', substr($tanggal, 0, -1))
                     ->with('_nilai', substr($nilai, 0, -1))
                     ->with('diambil', $diambil)
@@ -297,6 +303,11 @@ class HomeController extends Controller
                 $jumlahKaryawan = Karyawan::count();
                 $jumlahCustomer = User::where('auth', 'Customer')->count();
 
+                // Total Piutang (belum lunas)
+                $totalPiutang = Transaksi::where('status_payment', 'Pending')->sum('harga_akhir')
+                    + TransaksiSatuan::where('status_payment', 'Pending')->sum('harga_akhir')
+                    + Pemasukan::where('keterangan', 'LIKE', '%nyusul%')->sum('total');
+
                 // Jumlah Transaksi
                 $transaksiReguler = Transaksi::count();
                 $transaksiSatuan = TransaksiSatuan::count();
@@ -445,6 +456,7 @@ class HomeController extends Controller
                     'jumlahAdmin',
                     'jumlahKaryawan',
                     'jumlahCustomer',
+                    'totalPiutang',
                     'bulananReg',
                     'bulananSat',
                     'bulananPemKuota',
