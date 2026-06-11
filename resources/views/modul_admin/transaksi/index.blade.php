@@ -79,7 +79,7 @@
                     </div>
 
                     <div class="mt-3">
-                        {{ $transaksiBiasa->links() }}
+                        {{ $transaksiBiasa->links('vendor.pagination.custom') }}
                     </div>
                 </div>
             </div>

@@ -148,7 +148,7 @@
             </div>
 
             <div class="mt-3">
-                {{ $ordersatuan->links() }}
+                {{ $ordersatuan->links('vendor.pagination.custom') }}
             </div>
         </div>
     </div>

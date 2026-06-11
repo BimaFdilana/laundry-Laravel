@@ -87,7 +87,7 @@
                     </div>
 
                     <div class="mt-3">
-                        {{ $transaksiSatuan->links() }}
+                        {{ $transaksiSatuan->links('vendor.pagination.custom') }}
                     </div>
                 </div>
             </div>
