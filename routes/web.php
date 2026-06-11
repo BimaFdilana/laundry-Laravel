@@ -76,6 +76,19 @@ Route::middleware('auth')->group(function () {
         Route::get('/laporan/bulanan', [LaporanController::class, 'bulanan'])->name('laporan.bulanan');
         Route::get('/laporan/tahunan', [LaporanController::class, 'tahunan'])->name('laporan.tahunan');
         Route::get('/laporan/total', [LaporanController::class, 'total'])->name('laporan.total');
+        Route::get('/laporan/perbandingan', [LaporanController::class, 'perbandingan'])->name('laporan.perbandingan');
+
+        // Aktivitas Karyawan
+        Route::get('/superadmin/aktivitas-karyawan', [\App\Http\Controllers\SuperAdmin\AktivitasKaryawanController::class, 'index'])->name('superadmin.aktivitas-karyawan.index');
+        Route::post('/superadmin/aktivitas-karyawan', [\App\Http\Controllers\SuperAdmin\AktivitasKaryawanController::class, 'store'])->name('superadmin.aktivitas-karyawan.store');
+        Route::post('/superadmin/aktivitas-karyawan/{id}/selesai', [\App\Http\Controllers\SuperAdmin\AktivitasKaryawanController::class, 'selesai'])->name('superadmin.aktivitas-karyawan.selesai');
+        Route::delete('/superadmin/aktivitas-karyawan/{id}', [\App\Http\Controllers\SuperAdmin\AktivitasKaryawanController::class, 'destroy'])->name('superadmin.aktivitas-karyawan.destroy');
+        Route::get('/superadmin/aktivitas-karyawan/by-transaksi', [\App\Http\Controllers\SuperAdmin\AktivitasKaryawanController::class, 'getByTransaksi'])->name('superadmin.aktivitas-karyawan.by-transaksi');
+
+        // Reward Karyawan
+        Route::get('/superadmin/reward-karyawan', [\App\Http\Controllers\SuperAdmin\RewardKaryawanController::class, 'index'])->name('superadmin.reward-karyawan.index');
+        Route::post('/superadmin/reward-karyawan', [\App\Http\Controllers\SuperAdmin\RewardKaryawanController::class, 'store'])->name('superadmin.reward-karyawan.store');
+        Route::delete('/superadmin/reward-karyawan/{id}', [\App\Http\Controllers\SuperAdmin\RewardKaryawanController::class, 'destroy'])->name('superadmin.reward-karyawan.destroy');
 
         // Admin
         Route::resource('kelola-admin', 'SuperAdmin\AdminController');
@@ -110,11 +123,17 @@ Route::middleware('auth')->group(function () {
         Route::put('inventaris/{id}', [InventarisController::class, 'update'])->name('inventaris.update');
         Route::delete('inventaris/{id}', [InventarisController::class, 'destroy'])->name('inventaris.destroy');
 
+        // Piutang
+        Route::get('/superadmin/piutang', [\App\Http\Controllers\SuperAdmin\PiutangController::class, 'index'])->name('superadmin.piutang.index');
+        Route::post('/superadmin/piutang/{tipe}/{id}/bayar', [\App\Http\Controllers\SuperAdmin\PiutangController::class, 'bayar'])->name('superadmin.piutang.bayar');
+
         // Transaksi
         Route::get('/superadmin/transaksi', [SuperAdminTransaksiController::class, 'index'])->name('superadmin.transaksi');
         Route::get('/superadmin/transaksi-satuan', [SuperAdminTransaksiController::class, 'satuan'])->name('superadmin.transaksisatuan');
         Route::delete('/superadmin/transaksi/{id}', [SuperAdminTransaksiController::class, 'destroy'])->name('superadmin.transaksi.destroy');
         Route::delete('/superadmin/transaksi-satuan/{id}', [SuperAdminTransaksiController::class, 'destroysatuan'])->name('superadmin.transaksisatuan.destroy');
+        Route::get('/superadmin/ubah-status-bayar', [SuperAdminTransaksiController::class, 'ubahstatusbayar'])->name('superadmin.ubahstatusbayar');
+        Route::get('/superadmin/ubah-status-bayar-satuan', [SuperAdminTransaksiController::class, 'ubahstatusbayarsatuan'])->name('superadmin.ubahstatusbayarsatuan');
     });
 
     // Modul Admin
@@ -194,6 +213,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/admin-laporan/bulanan', [AdminLaporanController::class, 'bulanan'])->name('admin-laporan.bulanan');
         Route::get('/admin-laporan/tahunan', [AdminLaporanController::class, 'tahunan'])->name('admin-laporan.tahunan');
         Route::get('/admin-laporan/total', [AdminLaporanController::class, 'total'])->name('admin-laporan.total');
+
+        // Piutang
+        Route::get('/admin/piutang', [\App\Http\Controllers\Admin\PiutangController::class, 'index'])->name('admin.piutang.index');
+        Route::post('/admin/piutang/{tipe}/{id}/bayar', [\App\Http\Controllers\Admin\PiutangController::class, 'bayar'])->name('admin.piutang.bayar');
     });
 
     // Modul Customer

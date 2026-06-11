@@ -253,6 +253,11 @@
                         <a href="{{ route('admin-laporan.harian') }}"><i class="feather icon-file-text"></i><span
                                 class="menu-title" data-i18n="Dashboard">Laporan</span></a>
                     </li>
+
+                    <li class="nav-item {{ request()->routeIs('admin.piutang.index') ? 'active' : '' }}">
+                        <a href="{{ route('admin.piutang.index') }}"><i class="feather icon-alert-circle"></i><span
+                                class="menu-title" data-i18n="Dashboard">Piutang</span></a>
+                    </li>
                 @elseif(auth::user()->auth == 'SuperAdmin')
                     <li
                         class="nav-item {{ request()->routeIs('superadmin.transaksi', 'superadmin.transaksisatuan') ? 'active' : '' }}">
@@ -278,6 +283,14 @@
                             <li class="nav-item {{ request()->is(patterns: 'bintang') ? 'active' : '' }}"><a
                                     href="{{ url('/bintang') }}"><i class="feather icon-circle"></i><span
                                         class="menu-title" data-i18n="List">Bintang Karyawan</span></a>
+                            </li>
+                            <li class="nav-item {{ request()->routeIs('superadmin.aktivitas-karyawan.index') ? 'active' : '' }}"><a
+                                    href="{{ route('superadmin.aktivitas-karyawan.index') }}"><i class="feather icon-circle"></i><span
+                                        class="menu-title" data-i18n="List">Aktivitas Karyawan</span></a>
+                            </li>
+                            <li class="nav-item {{ request()->routeIs('superadmin.reward-karyawan.index') ? 'active' : '' }}"><a
+                                    href="{{ route('superadmin.reward-karyawan.index') }}"><i class="feather icon-circle"></i><span
+                                        class="menu-title" data-i18n="List">Reward Karyawan</span></a>
                             </li>
                         </ul>
                     </li>
@@ -333,6 +346,11 @@
                                 <a href="{{ url('pengeluaran') }}"><i class="feather icon-circle"></i><span
                                         class="menu-title" data-i18n="List">Pengeluaran</span></a>
                             </li>
+                            <li
+                                class="nav-item {{ request()->routeIs('superadmin.piutang.index') ? 'active' : '' }}">
+                                <a href="{{ route('superadmin.piutang.index') }}"><i class="feather icon-circle"></i><span
+                                        class="menu-title" data-i18n="List">Piutang</span></a>
+                            </li>
                         </ul>
                     </li>
 
@@ -340,6 +358,11 @@
                         class="nav-item {{ request()->routeIs('laporan.harian', 'laporan.bulanan', 'laporan.tahunan', 'laporan.total') ? 'active' : '' }}">
                         <a href="{{ route('laporan.harian') }}"><i class="feather icon-file-text"></i><span
                                 class="menu-title" data-i18n="Dashboard">Laporan</span></a>
+                    </li>
+
+                    <li class="nav-item {{ request()->routeIs('laporan.perbandingan') ? 'active' : '' }}">
+                        <a href="{{ route('laporan.perbandingan') }}"><i class="feather icon-bar-chart-2"></i><span
+                                class="menu-title" data-i18n="Dashboard">Perbandingan</span></a>
                     </li>
                 @elseif(auth::user()->auth == 'Customer')
                     <li class="nav-item {{ request()->is('paket-customer') ? 'active' : '' }}">

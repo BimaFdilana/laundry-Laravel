@@ -236,6 +236,42 @@ class PemasukanController extends Controller
         $transaksiList = $regulerQuery->get(); // sudah terurut desc
         $satuanList = $satuanQuery->get();     // sudah terurut desc
 
+        // Pisah Cash & Transfer (dari transaksi reguler + satuan)
+        $metode = $request->metode;
+        $allTrx = $transaksiList->map(function ($i) {
+            return (object) [
+                'invoice' => $i->invoice,
+                'tanggal' => $i->created_at,
+                'customer' => $i->customer,
+                'total' => (int) $i->harga_akhir,
+                'status_payment' => $i->status_payment,
+                'jenis_pembayaran' => $i->jenis_pembayaran,
+                'tipe' => 'Reguler',
+            ];
+        })->merge($satuanList->map(function ($i) {
+            return (object) [
+                'invoice' => $i->invoice,
+                'tanggal' => $i->created_at,
+                'customer' => $i->customer,
+                'total' => (int) $i->harga_akhir,
+                'status_payment' => $i->status_payment,
+                'jenis_pembayaran' => $i->jenis_pembayaran,
+                'tipe' => 'Satuan',
+            ];
+        }))->sortByDesc('tanggal')->values();
+
+        $cashList = $allTrx->where('jenis_pembayaran', 'Tunai')->values();
+        $transferList = $allTrx->where('jenis_pembayaran', 'Transfer')->values();
+
+        // Filter berdasarkan metode pembayaran
+        $showCash = $metode !== 'transfer';
+        $showTransfer = $metode !== 'cash';
+
+        $totalCashLunas = $cashList->where('status_payment', 'Success')->sum('total');
+        $totalCashBelum = $cashList->where('status_payment', 'Pending')->sum('total');
+        $totalTransferLunas = $transferList->where('status_payment', 'Success')->sum('total');
+        $totalTransferBelum = $transferList->where('status_payment', 'Pending')->sum('total');
+
         $totalPemasukanBersih = $totalTransaksi + $totalSatuan + $totalKuotaLunas + $totalPemasukanManual;
 
         return view('superadmin.pemasukan.index', compact(
@@ -245,6 +281,15 @@ class PemasukanController extends Controller
             'purchaseKuotaList',
             'transaksiList',
             'satuanList',
+            'cashList',
+            'transferList',
+            'totalCashLunas',
+            'totalCashBelum',
+            'totalTransferLunas',
+            'totalTransferBelum',
+            'showCash',
+            'showTransfer',
+            'metode',
             'utangTransaksi',
             'utangSatuan',
             'totalTransaksi',

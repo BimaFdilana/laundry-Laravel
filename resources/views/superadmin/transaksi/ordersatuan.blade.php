@@ -96,11 +96,13 @@
                                 <td>{{ $item->info_pembayaran ?? 'Info Tidak Tersedia' }}</td>
                                 <td>
                                     @if ($item->status_payment == 'Pending')
-                                        <a class="btn btn-sm btn-danger"
-                                            style="pointer-events: none; cursor: default; color: white;">Bayar</a>
+                                        <a href="{{ route('superadmin.ubahstatusbayarsatuan', ['id' => $item->id, 'status_payment' => 'Success']) }}"
+                                            class="btn btn-sm btn-danger"
+                                            onclick="return confirm('Ubah status pembayaran menjadi Lunas?')">Belum Bayar</a>
                                     @elseif($item->status_payment == 'Success')
-                                        <a class="btn btn-sm btn-success"
-                                            style="pointer-events: none; cursor: default; color: white;">Sudah Dibayar</a>
+                                        <a href="{{ route('superadmin.ubahstatusbayarsatuan', ['id' => $item->id, 'status_payment' => 'Pending']) }}"
+                                            class="btn btn-sm btn-success"
+                                            onclick="return confirm('Ubah status pembayaran menjadi Belum Bayar?')">Sudah Dibayar</a>
                                     @endif
                                 </td>
                                 <td>

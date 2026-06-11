@@ -109,6 +109,24 @@
                                 </div>
                             </div>
 
+                            <!-- Status Bayar -->
+                            <div class="col-md-3">
+                                <div class="form-group has-success">
+                                    <label class="control-label">Status Bayar</label>
+                                    <select
+                                        class="form-control custom-select {{ $errors->has('status_bayar') ? 'is-invalid' : '' }}"
+                                        name="status_bayar" required>
+                                        <option value="belum_bayar">Belum Bayar</option>
+                                        <option value="lunas">Lunas</option>
+                                    </select>
+                                    @if ($errors->has('status_bayar'))
+                                        <span class="invalid-feedback" role="alert">
+                                            <strong>{{ $errors->first('status_bayar') }}</strong>
+                                        </span>
+                                    @endif
+                                </div>
+                            </div>
+
                             <!-- Jenis Layanan -->
                             <div class="col-md-3">
                                 <div class="form-group has-success">

@@ -72,6 +72,7 @@ class TransaksiSatuanController extends Controller
             'details'             => 'required|array|min:1',
             'details.*.satuan_id' => 'required|exists:satuans,id',
             'details.*.pcs'       => 'required',
+            'status_bayar'        => 'nullable|in:lunas,belum_bayar',
         ]);
 
         $customer = User::findOrFail($request->customer_id);
@@ -85,7 +86,7 @@ class TransaksiSatuanController extends Controller
             'email_customer'    => $customer->email,
             'tgl_transaksi'     => $tgl,
             'status_order'      => 'Antrian',
-            'status_payment'    => 'Pending',
+            'status_payment'    => $request->status_bayar === 'lunas' ? 'Success' : 'Pending',
             'jenis_pembayaran'  => $request->jenis_pembayaran,
             'tgl'               => Carbon::now()->day,
             'bulan'             => Carbon::now()->month,

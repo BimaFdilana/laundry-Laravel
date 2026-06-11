@@ -64,6 +64,26 @@
         </div>
     </div>
 
+    <div class="row">
+        <div class="col-12">
+            <a href="{{ route('admin.piutang.index') }}" style="text-decoration: none; color: inherit;">
+                <div class="card bg-light-danger">
+                    <div class="card-header d-flex align-items-start pb-0">
+                        <div>
+                            <h2 class="text-bold-700 mb-0 text-danger">Rp. {{ number_format($totalPiutang, 0, ',', '.') }}</h2>
+                            <p>Total Piutang Belum Dibayar</p>
+                        </div>
+                        <div class="avatar bg-rgba-danger p-50 m-0">
+                            <div class="avatar-content">
+                                <i class="feather icon-alert-circle text-danger font-medium-5"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
     {{-- Target Laundry --}}
     <div class="row">
         <div class="col-12">

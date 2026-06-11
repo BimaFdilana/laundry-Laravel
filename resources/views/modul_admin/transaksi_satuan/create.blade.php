@@ -121,6 +121,23 @@
                             @endif
                         </div>
 
+                        <!-- Status Bayar -->
+                        <div class="col-md-3">
+                            <label>Status Bayar</label>
+                            <select name="status_bayar"
+                                class="form-control {{ $errors->has('status_bayar') ? 'is-invalid' : '' }}" required>
+                                <option value="belum_bayar" {{ old('status_bayar') == 'belum_bayar' ? 'selected' : '' }}>
+                                    Belum Bayar</option>
+                                <option value="lunas" {{ old('status_bayar') == 'lunas' ? 'selected' : '' }}>Lunas
+                                </option>
+                            </select>
+                            @if ($errors->has('status_bayar'))
+                                <span class="invalid-feedback" role="alert">
+                                    <strong>{{ $errors->first('status_bayar') }}</strong>
+                                </span>
+                            @endif
+                        </div>
+
                         <!-- Jenis Pewangi -->
                         <div class="col-md-3">
                             <label for="jenis_pewangi">Jenis Pewangi</label>

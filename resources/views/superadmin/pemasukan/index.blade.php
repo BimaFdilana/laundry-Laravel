@@ -56,6 +56,18 @@
 
                             <button type="submit" class="btn btn-info">Filter</button>
                         </form>
+                        <form method="GET" action="{{ route('pemasukan.index') }}" class="form-inline mt-2">
+                            <input type="hidden" name="hari" value="{{ request('hari') }}">
+                            <input type="hidden" name="bulan" value="{{ request('bulan') }}">
+                            <input type="hidden" name="tahun" value="{{ request('tahun') }}">
+                            <label class="mr-2">Metode:</label>
+                            <select name="metode" class="form-control mr-2">
+                                <option value="">Semua</option>
+                                <option value="cash" {{ request('metode') == 'cash' ? 'selected' : '' }}>Cash</option>
+                                <option value="transfer" {{ request('metode') == 'transfer' ? 'selected' : '' }}>Transfer</option>
+                            </select>
+                            <button type="submit" class="btn btn-primary">Tampilkan</button>
+                        </form>
                     </div>
 
                     @if (request('tahun'))
@@ -133,9 +145,11 @@
             </div>
         </div>
         <div class="col-12">
+            @if ($showCash)
             <div class="card">
-                <div class="card-header">
-                    <h4 class="card-title">Detail Pemasukan Transaksi Reguler</h4>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="card-title">Detail Pemasukan - Cash (Tunai)</h4>
+                    <span class="badge badge-success">Lunas: Rp. {{ number_format($totalCashLunas, 0, ',', '.') }}</span>
                 </div>
                 <div class="card-body table-responsive">
                     <table class="table zero-configuration">
@@ -144,33 +158,22 @@
                                 <th>Invoice</th>
                                 <th>Tanggal</th>
                                 <th>Customer</th>
+                                <th>Tipe</th>
                                 <th>Total</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach ($transaksiList as $item)
+                            @foreach ($cashList as $item)
                                 <tr>
                                     <td>{{ $item->invoice }}</td>
-                                    <td>{{ $item->created_at->format('d/m/Y H:i') }}</td>
+                                    <td>{{ \Carbon\Carbon::parse($item->tanggal)->format('d/m/Y H:i') }}</td>
                                     <td>{{ $item->customer ?? '-' }}</td>
-                                    <td>{{ Rupiah::getRupiah($item->harga_akhir) }}</td>
-                                    @php
-                                        $badgeClass = match ($item->status_payment) {
-                                            'Success' => 'badge-success',
-                                            'Pending' => 'badge-danger',
-                                            default => 'badge-secondary',
-                                        };
-
-                                        $badgeText = match ($item->status_payment) {
-                                            'Success' => 'Lunas',
-                                            'Pending' => 'Belum Lunas',
-                                            default => $item->status_payment,
-                                        };
-                                    @endphp
+                                    <td><span class="badge badge-light">{{ $item->tipe }}</span></td>
+                                    <td>Rp. {{ number_format($item->total, 0, ',', '.') }}</td>
                                     <td>
-                                        <span class="badge {{ $badgeClass }}">
-                                            {{ $badgeText }}
+                                        <span class="badge {{ $item->status_payment == 'Success' ? 'badge-success' : 'badge-danger' }}">
+                                            {{ $item->status_payment == 'Success' ? 'Lunas' : 'Belum Lunas' }}
                                         </span>
                                     </td>
                                 </tr>
@@ -178,24 +181,24 @@
                         </tbody>
                         <tfoot>
                             <tr>
-                                <td colspan="3" class="text-right" style="color: white;"><strong>Total Pemasukan
-                                        Transaksi</strong>
-                                </td>
-                                <td colspan="2"><strong class="text-success">{{ Rupiah::getRupiah($totalTransaksi) }}</strong></td>
+                                <td colspan="4" class="text-right"><strong>Total Cash (Lunas)</strong></td>
+                                <td colspan="2"><strong class="text-success">Rp. {{ number_format($totalCashLunas, 0, ',', '.') }}</strong></td>
                             </tr>
                             <tr>
-                                <td colspan="3" class="text-right" style="color: white;"><strong>Total Utang
-                                        (Pending)</strong></td>
-                                <td colspan="2"><strong class="text-danger">{{ Rupiah::getRupiah($utangTransaksi) }}</strong></td>
+                                <td colspan="4" class="text-right"><strong>Total Cash (Belum Lunas)</strong></td>
+                                <td colspan="2"><strong class="text-danger">Rp. {{ number_format($totalCashBelum, 0, ',', '.') }}</strong></td>
                             </tr>
                         </tfoot>
                     </table>
                 </div>
             </div>
+            @endif
 
+            @if ($showTransfer)
             <div class="card mt-2">
-                <div class="card-header">
-                    <h4 class="card-title">Detail Pemasukan Transaksi Satuan</h4>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="card-title">Detail Pemasukan - Transfer</h4>
+                    <span class="badge badge-success">Lunas: Rp. {{ number_format($totalTransferLunas, 0, ',', '.') }}</span>
                 </div>
                 <div class="card-body table-responsive">
                     <table class="table zero-configuration">
@@ -204,33 +207,22 @@
                                 <th>Invoice</th>
                                 <th>Tanggal</th>
                                 <th>Customer</th>
+                                <th>Tipe</th>
                                 <th>Total</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach ($satuanList as $item)
+                            @foreach ($transferList as $item)
                                 <tr>
                                     <td>{{ $item->invoice }}</td>
-                                    <td>{{ $item->created_at->format('d/m/Y H:i') }}</td>
+                                    <td>{{ \Carbon\Carbon::parse($item->tanggal)->format('d/m/Y H:i') }}</td>
                                     <td>{{ $item->customer ?? '-' }}</td>
-                                    <td>{{ Rupiah::getRupiah($item->harga_akhir) }}</td>
-                                    @php
-                                        $badgeClass = match ($item->status_payment) {
-                                            'Success' => 'badge-success',
-                                            'Pending' => 'badge-danger',
-                                            default => 'badge-secondary',
-                                        };
-
-                                        $badgeText = match ($item->status_payment) {
-                                            'Success' => 'Lunas',
-                                            'Pending' => 'Belum Lunas',
-                                            default => $item->status_payment,
-                                        };
-                                    @endphp
+                                    <td><span class="badge badge-light">{{ $item->tipe }}</span></td>
+                                    <td>Rp. {{ number_format($item->total, 0, ',', '.') }}</td>
                                     <td>
-                                        <span class="badge {{ $badgeClass }}">
-                                            {{ $badgeText }}
+                                        <span class="badge {{ $item->status_payment == 'Success' ? 'badge-success' : 'badge-danger' }}">
+                                            {{ $item->status_payment == 'Success' ? 'Lunas' : 'Belum Lunas' }}
                                         </span>
                                     </td>
                                 </tr>
@@ -238,20 +230,18 @@
                         </tbody>
                         <tfoot>
                             <tr>
-                                <td colspan="3" class="text-right" style="color: white;"><strong>Total Pemasukan
-                                        Transaksi</strong>
-                                </td>
-                                <td colspan="2"><strong class="text-success">{{ Rupiah::getRupiah($totalSatuan) }}</strong></td>
+                                <td colspan="4" class="text-right"><strong>Total Transfer (Lunas)</strong></td>
+                                <td colspan="2"><strong class="text-success">Rp. {{ number_format($totalTransferLunas, 0, ',', '.') }}</strong></td>
                             </tr>
                             <tr>
-                                <td colspan="3" class="text-right" style="color: white;"><strong>Total Utang
-                                        (Pending)</strong></td>
-                                <td colspan="2"><strong class="text-danger">{{ Rupiah::getRupiah($utangSatuan) }}</strong></td>
+                                <td colspan="4" class="text-right"><strong>Total Transfer (Belum Lunas)</strong></td>
+                                <td colspan="2"><strong class="text-danger">Rp. {{ number_format($totalTransferBelum, 0, ',', '.') }}</strong></td>
                             </tr>
                         </tfoot>
                     </table>
                 </div>
             </div>
+            @endif
 
             <div class="card mt-2">
                 <div class="card-header">

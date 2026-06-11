@@ -89,6 +89,7 @@ class PelayananController extends Controller
             'catatan_admin'     => 'nullable|string|max:255',
             'jenis_pewangi'       => 'required|string',
             'jumlah_lembar_baju' => 'nullable|integer|min:0',
+            'status_bayar'      => 'nullable|in:lunas,belum_bayar',
         ]);
 
         // Ambil customer berdasarkan customer_id yang dipilih admin
@@ -167,6 +168,11 @@ class PelayananController extends Controller
         $order->tgl = Carbon::now()->day;
         $order->bulan = Carbon::now()->month;
         $order->tahun = Carbon::now()->year;
+
+        // Override status jika admin pilih Lunas
+        if ($request->status_bayar === 'lunas') {
+            $status_payment = 'Success';
+        }
         $order->status_payment = $status_payment;
 
         $sisa_bayar = $sisa_berbayar * $hargaObj->harga;
