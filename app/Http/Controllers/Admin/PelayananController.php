@@ -16,7 +16,7 @@ class PelayananController extends Controller
     public function index()
     {
         // Ambil data transaksi
-        $order = Transaksi::with(['price', 'karyawan'])->orderBy('id', 'DESC')->get();
+        $order = Transaksi::with(['price', 'karyawan'])->orderBy('id', 'DESC')->paginate(20);
 
         // Ambil semua karyawan
         $karyawans = Karyawan::all();
@@ -79,7 +79,8 @@ class PelayananController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'tgl_transaksi' => 'required',
+            'invoice'           => 'required|unique:transaksis,invoice',
+            'tgl_transaksi'     => 'required',
             'kg'                => 'required|regex:/^[0-9.]+$/',
             'hari'              => 'required',
             'harga_id'          => 'required|exists:hargas,id',
@@ -87,8 +88,8 @@ class PelayananController extends Controller
             'customer_id'       => 'required|exists:users,id',
             'karyawan_id'       => 'required|exists:karyawans,id',
             'catatan_admin'     => 'nullable|string|max:255',
-            'jenis_pewangi'       => 'required|string',
-            'jumlah_lembar_baju' => 'nullable|integer|min:0',
+            'jenis_pewangi'     => 'required|string',
+            'jumlah_lembar_baju'=> 'nullable|integer|min:0',
             'status_bayar'      => 'nullable|in:lunas,belum_bayar',
         ]);
 

@@ -44,10 +44,9 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <?php $no = 1; ?>
                         @foreach ($order as $item)
                             <tr>
-                                <td>{{ $no }}</td>
+                                <td>{{ $loop->iteration + ($order->currentPage() - 1) * $order->perPage() }}</td>
                                 <td style="font-weight:bold;">{{ $item->invoice }}</td>
                                 <td>{{ carbon\carbon::parse($item->tgl_transaksi)->format('d-m-y') }}</td>
                                 <td>{{ $item->customer }}</td>
@@ -102,11 +101,14 @@
                                 </td>
 
                             </tr>
-                            <?php $no++; ?>
                         @endforeach
                     </tbody>
                 </table>
 
+            </div>
+
+            <div class="mt-3">
+                {{ $order->links('vendor.pagination.custom') }}
             </div>
 
             @include('modul_admin.transaksi.statusorder')
@@ -203,7 +205,10 @@
 
         // DATATABLE
         $(document).ready(function() {
-            $('#myTable').DataTable();
+            $('#myTable').DataTable({
+                paging: false,
+                info: false
+            });
             $(document).ready(function() {
                 var table = $('#example').DataTable({
                     "columnDefs": [{

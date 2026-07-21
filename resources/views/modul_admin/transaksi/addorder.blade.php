@@ -297,5 +297,12 @@
                 $('input[name="hari"]').val(hari);
             }
         });
+
+        // Prevent double submit
+        $('form').submit(function() {
+            var btn = $(this).find('button[type="submit"]');
+            btn.prop('disabled', true);
+            btn.text('Menyimpan...');
+        });
     </script>
 @endsection

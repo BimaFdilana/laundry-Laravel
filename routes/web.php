@@ -46,6 +46,7 @@ Route::get('/transaksi-satuan-customer/invoice/{invoice}', [InvoiceController::c
 
 Route::middleware('auth')->group(function () {
     Route::get('/home', 'HomeController@index')->name('home');
+    Route::get('/home/filter-pemasukan', 'HomeController@filterPemasukan')->name('home.filter.pemasukan');
 
     // Modul Super Admin
     Route::prefix('/')->middleware('role:SuperAdmin')->group(function () {

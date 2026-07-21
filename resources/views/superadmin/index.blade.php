@@ -135,11 +135,42 @@
         </div>
         <div class="col-lg-6 col-12 d-flex">
             <div class="card w-100 h-80">
-                <div class="card-header d-flex justify-content-between">
-                    <h4 class="card-title">Pemasukan</h4>
-                    <h4 class="card-title">
-                        <span>{{ Rupiah::getRupiah($totalPemasukan) }}</span>
-                    </h4>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="card-title mb-0">Pemasukan</h4>
+                    <div class="d-flex align-items-center">
+                        <select id="filterTipe" class="form-control form-control-sm mr-1" style="width: auto;">
+                            <option value="total">Sampai Saat Ini</option>
+                            <option value="hari">Hari Ini</option>
+                            <option value="minggu">Minggu Ini</option>
+                            <option value="bulan">Bulan Ini</option>
+                            <option value="tahun">Tahun Ini</option>
+                            <option value="custom">Periode Khusus...</option>
+                        </select>
+                        <select id="filterBulan" class="form-control form-control-sm mr-1" style="width: auto; display: none;">
+                            <option value="">Semua Bulan</option>
+                            <option value="1">Januari</option>
+                            <option value="2">Februari</option>
+                            <option value="3">Maret</option>
+                            <option value="4">April</option>
+                            <option value="5">Mei</option>
+                            <option value="6">Juni</option>
+                            <option value="7">Juli</option>
+                            <option value="8">Agustus</option>
+                            <option value="9">September</option>
+                            <option value="10">Oktober</option>
+                            <option value="11">November</option>
+                            <option value="12">Desember</option>
+                        </select>
+                        <select id="filterTahun" class="form-control form-control-sm mr-2" style="width: auto; display: none;">
+                            @php $currentY = date('Y'); @endphp
+                            @for($y = $currentY; $y >= 2020; $y--)
+                                <option value="{{ $y }}">{{ $y }}</option>
+                            @endfor
+                        </select>
+                        <h4 class="card-title mb-0" id="displayTotalPemasukan">
+                            <span>{{ Rupiah::getRupiah($totalPemasukan) }}</span>
+                        </h4>
+                    </div>
                 </div>
                 <div class="card-content">
                     <div class="card-body pt-50">
@@ -161,6 +192,16 @@
                             </div>
                             <div class="product-result">
                                 <span>{{ Rupiah::getRupiah($bulan) }}</span>
+                            </div>
+                        </div>
+
+                        <div class="chart-info d-flex justify-content-between mb-25">
+                            <div class="series-info d-flex align-items-center">
+                                <i class="fa fa-circle-o text-bold-700 text-info"></i>
+                                <span class="text-bold-600 ml-50">Minggu Ini</span>
+                            </div>
+                            <div class="product-result">
+                                <span>{{ Rupiah::getRupiah($minggu) }}</span>
                             </div>
                         </div>
 
@@ -534,56 +575,46 @@
         var orderChartoptions = {
             chart: {
                 height: 325,
-                type: 'radialBar',
+                type: 'donut',
             },
-            colors: [$primary, $warning, $danger],
-            fill: {
-                type: 'gradient',
-                gradient: {
-                    enabled: true,
-                    shade: 'dark',
-                    type: 'vertical',
-                    shadeIntensity: 0.5,
-                    gradientToColors: [$primary_light, $warning_light, $danger_light],
-                    inverseColors: false,
-                    opacityFrom: 1,
-                    opacityTo: 1,
-                    stops: [0, 100]
-                },
-            },
-            stroke: {
-                lineCap: 'round'
-            },
+            colors: [$primary, $warning, $danger, $purple],
             plotOptions: {
-                radialBar: {
-                    size: 150,
-                    hollow: {
-                        size: '20%'
-                    },
-                    track: {
-                        strokeWidth: '100%',
-                        margin: 15,
-                    },
-                    dataLabels: {
-                        name: {
-                            fontSize: '12px',
-                        },
-                        value: {
-                            fontSize: '16px',
-                        },
-                        total: {
+                pie: {
+                    donut: {
+                        size: '70%',
+                        labels: {
                             show: true,
-                            label: 'Total Transaksi',
-
-                            formatter: function(w) {
-                                return [{{ $transaksi->count() }}]
+                            name: {
+                                fontSize: '14px',
+                            },
+                            value: {
+                                fontSize: '16px',
+                                formatter: function(val) {
+                                    return "Rp " + parseInt(val).toLocaleString('id-ID');
+                                }
+                            },
+                            total: {
+                                show: true,
+                                label: 'Total Pemasukan',
+                                formatter: function(w) {
+                                    var total = w.globals.seriesTotals.reduce((a, b) => {
+                                        return a + b
+                                    }, 0);
+                                    return "Rp " + total.toLocaleString('id-ID');
+                                }
                             }
                         }
                     }
                 }
             },
-            series: [{{ $ny }}, {{ $nm }}, {{ $nd }}],
-            labels: ['Tahun Ini', 'Bulan Ini', 'Hari Ini'],
+            series: [{{ $totalTransaksi }}, {{ $totalSatuan }}, {{ $totalKuota }}, {{ $pemasukanManualLain }}],
+            labels: ['Reguler', 'Satuan', 'Kuota', 'Lainnya'],
+            legend: {
+                show: false
+            },
+            dataLabels: {
+                enabled: false
+            }
         }
 
         var orderChart = new ApexCharts(
@@ -593,5 +624,56 @@
 
         orderChart.render();
         // End Data Finance
+
+        // Filter Pemasukan
+        var filterDataPemasukan = {
+            total: { text: "{{ Rupiah::getRupiah($totalPemasukan) }}", series: [{{ $totalTransaksi }}, {{ $totalSatuan }}, {{ $totalKuota }}, {{ $pemasukanManualLain }}] },
+            hari: { text: "{{ Rupiah::getRupiah($hari) }}", series: [{{ $transaksiHari }}, {{ $satuanHari }}, {{ $kuotaHari }}, {{ $lainHari }}] },
+            minggu: { text: "{{ Rupiah::getRupiah($minggu) }}", series: [{{ $transaksiMinggu }}, {{ $satuanMinggu }}, {{ $kuotaMinggu }}, {{ $lainMinggu }}] },
+            bulan: { text: "{{ Rupiah::getRupiah($bulan) }}", series: [{{ $transaksiBulan }}, {{ $satuanBulan }}, {{ $kuotaBulan }}, {{ $lainBulan }}] },
+            tahun: { text: "{{ Rupiah::getRupiah($tahun) }}", series: [{{ $transaksiTahun }}, {{ $satuanTahun }}, {{ $kuotaTahun }}, {{ $lainTahun }}] }
+        };
+
+        function fetchCustomPemasukan() {
+            var bulan = $('#filterBulan').val();
+            var tahun = $('#filterTahun').val();
+            
+            $('#displayTotalPemasukan span').text('Loading...');
+            
+            $.ajax({
+                url: "{{ route('home.filter.pemasukan') }}",
+                type: "GET",
+                data: {
+                    bulan: bulan,
+                    tahun: tahun
+                },
+                success: function(response) {
+                    $('#displayTotalPemasukan span').text(response.totalText);
+                    orderChart.updateSeries(response.series);
+                },
+                error: function() {
+                    $('#displayTotalPemasukan span').text('Error');
+                }
+            });
+        }
+
+        $('#filterTipe').on('change', function() {
+            var val = $(this).val();
+            if (val === 'custom') {
+                $('#filterBulan').show();
+                $('#filterTahun').show();
+                fetchCustomPemasukan();
+            } else {
+                $('#filterBulan').hide();
+                $('#filterTahun').hide();
+                var data = filterDataPemasukan[val];
+                $('#displayTotalPemasukan span').text(data.text);
+                orderChart.updateSeries(data.series);
+            }
+        });
+
+        $('#filterBulan, #filterTahun').on('change', function() {
+            fetchCustomPemasukan();
+        });
     </script>
 @endsection

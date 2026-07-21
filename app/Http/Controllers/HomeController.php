@@ -159,6 +159,10 @@ class HomeController extends Controller
                     ->where('tahun', $today->year)
                     ->sum('harga_akhir');
 
+                $transaksiMinggu = Transaksi::where('status_payment', 'Success')
+                    ->whereBetween('created_at', [$today->copy()->startOfWeek(), $today->copy()->endOfWeek()])
+                    ->sum('harga_akhir');
+
                 $transaksiTahun = Transaksi::where('status_payment', 'Success')
                     ->where('tahun', $today->year)
                     ->sum('harga_akhir');
@@ -176,6 +180,10 @@ class HomeController extends Controller
                 $satuanBulan = TransaksiSatuan::where('status_payment', 'Success')
                     ->where('bulan', $today->month)
                     ->where('tahun', $today->year)
+                    ->sum('harga_akhir');
+
+                $satuanMinggu = TransaksiSatuan::where('status_payment', 'Success')
+                    ->whereBetween('created_at', [$today->copy()->startOfWeek(), $today->copy()->endOfWeek()])
                     ->sum('harga_akhir');
 
                 $satuanTahun = TransaksiSatuan::where('status_payment', 'Success')
@@ -199,6 +207,10 @@ class HomeController extends Controller
                     ->where('created_at', '<=', $today->copy()->endOfMonth())
                     ->sum('package_price');
 
+                $purchaseKuotaMinggu = $purchaseKuotaList->where('created_at', '>=', $today->copy()->startOfWeek())
+                    ->where('created_at', '<=', $today->copy()->endOfWeek())
+                    ->sum('package_price');
+
                 $purchaseKuotaTahun = $purchaseKuotaList->where('created_at', '>=', $today->copy()->startOfYear())
                     ->where('created_at', '<=', $today->copy()->endOfYear())
                     ->sum('package_price');
@@ -219,6 +231,10 @@ class HomeController extends Controller
                     ->where('created_at', '<=', $today->copy()->endOfMonth())
                     ->sum('total');
 
+                $manualKuotaMinggu = $kuotaList->where('created_at', '>=', $today->copy()->startOfWeek())
+                    ->where('created_at', '<=', $today->copy()->endOfWeek())
+                    ->sum('total');
+
                 $manualKuotaTahun = $kuotaList->where('created_at', '>=', $today->copy()->startOfYear())
                     ->where('created_at', '<=', $today->copy()->endOfYear())
                     ->sum('total');
@@ -226,6 +242,7 @@ class HomeController extends Controller
                 // Total kuota = manual + request
                 $totalKuota = $pemasukanManualKuota + $totalPurchaseKuota;
                 $kuotaHari = $manualKuotaHari + $purchaseKuotaHari;
+                $kuotaMinggu = $manualKuotaMinggu + $purchaseKuotaMinggu;
                 $kuotaBulan = $manualKuotaBulan + $purchaseKuotaBulan;
                 $kuotaTahun = $manualKuotaTahun + $purchaseKuotaTahun;
 
@@ -241,6 +258,10 @@ class HomeController extends Controller
                     ->where('created_at', '<=', $today->copy()->endOfMonth())
                     ->sum('total');
 
+                $lainMinggu = $pemasukanLainList->where('created_at', '>=', $today->copy()->startOfWeek())
+                    ->where('created_at', '<=', $today->copy()->endOfWeek())
+                    ->sum('total');
+
                 $lainTahun = $pemasukanLainList->where('created_at', '>=', $today->copy()->startOfYear())
                     ->where('created_at', '<=', $today->copy()->endOfYear())
                     ->sum('total');
@@ -249,6 +270,7 @@ class HomeController extends Controller
 
                 // Total harian, bulanan, tahunan gabungan
                 $hari = $transaksiHari + $satuanHari + $kuotaHari + $lainHari;
+                $minggu = $transaksiMinggu + $satuanMinggu + $kuotaMinggu + $lainMinggu;
                 $bulan = $transaksiBulan + $satuanBulan + $kuotaBulan + $lainBulan;
                 $tahun = $transaksiTahun + $satuanTahun + $kuotaTahun + $lainTahun;
 
@@ -476,12 +498,18 @@ class HomeController extends Controller
                     'kgTahunIni',
                     'tahun',
                     'bulan',
+                    'minggu',
                     'hari',
                     'transaksi',
                     'ny',
                     'nm',
                     'nd',
-                    'totalPemasukan'
+                    'totalPemasukan',
+                    'totalTransaksi', 'totalSatuan', 'totalKuota', 'pemasukanManualLain',
+                    'transaksiHari', 'satuanHari', 'kuotaHari', 'lainHari',
+                    'transaksiMinggu', 'satuanMinggu', 'kuotaMinggu', 'lainMinggu',
+                    'transaksiBulan', 'satuanBulan', 'kuotaBulan', 'lainBulan',
+                    'transaksiTahun', 'satuanTahun', 'kuotaTahun', 'lainTahun'
                 ))->with('_tanggal', rtrim($tanggal, ','))
                     ->with('_nilai_reg', rtrim($_nilai_reg, ','))
                     ->with('_nilai_satuan', rtrim($_nilai_satuan, ','))
@@ -567,5 +595,75 @@ class HomeController extends Controller
                 Auth::logout();
             }
         }
+    }
+
+    public function filterPemasukan(Request $request)
+    {
+        $bulan = $request->bulan;
+        $tahun = $request->tahun;
+
+        $transaksiQuery = Transaksi::where('status_payment', 'Success');
+        $satuanQuery = TransaksiSatuan::where('status_payment', 'Success');
+
+        $kuotaQuery = \App\Models\Pemasukan::where(function($q) {
+            $q->where('kategori', 'like', '%kuota%')
+              ->orWhere('kategori', 'like', '%paket%');
+        });
+
+        $purchaseKuotaQuery = \App\Models\PurchaseRequest::where('status', 'confirmed');
+
+        $lainQuery = \App\Models\Pemasukan::where(function ($q) {
+            $q->whereNull('kategori')
+              ->orWhere(function($q2) {
+                  $q2->where('kategori', 'not like', '%kuota%')
+                     ->where('kategori', 'not like', '%paket%');
+              });
+        });
+
+        if ($tahun) {
+            $transaksiQuery->where('tahun', $tahun);
+            $satuanQuery->where('tahun', $tahun);
+
+            $kuotaQuery->where(function($q) use ($tahun) {
+                $q->whereYear('tanggal', $tahun)->orWhere(function($q2) use ($tahun) {
+                    $q2->whereNull('tanggal')->whereYear('created_at', $tahun);
+                });
+            });
+            $purchaseKuotaQuery->whereYear('created_at', $tahun);
+            $lainQuery->where(function($q) use ($tahun) {
+                $q->whereYear('tanggal', $tahun)->orWhere(function($q2) use ($tahun) {
+                    $q2->whereNull('tanggal')->whereYear('created_at', $tahun);
+                });
+            });
+
+            if ($bulan) {
+                $transaksiQuery->where('bulan', $bulan);
+                $satuanQuery->where('bulan', $bulan);
+
+                $kuotaQuery->where(function($q) use ($bulan) {
+                    $q->whereMonth('tanggal', $bulan)->orWhere(function($q2) use ($bulan) {
+                        $q2->whereNull('tanggal')->whereMonth('created_at', $bulan);
+                    });
+                });
+                $purchaseKuotaQuery->whereMonth('created_at', $bulan);
+                $lainQuery->where(function($q) use ($bulan) {
+                    $q->whereMonth('tanggal', $bulan)->orWhere(function($q2) use ($bulan) {
+                        $q2->whereNull('tanggal')->whereMonth('created_at', $bulan);
+                    });
+                });
+            }
+        }
+
+        $totalTransaksi = $transaksiQuery->sum('harga_akhir');
+        $totalSatuan = $satuanQuery->sum('harga_akhir');
+        $totalKuota = $kuotaQuery->sum('total') + $purchaseKuotaQuery->sum('package_price');
+        $pemasukanManualLain = $lainQuery->sum('total');
+
+        $totalPemasukan = $totalTransaksi + $totalSatuan + $totalKuota + $pemasukanManualLain;
+
+        return response()->json([
+            'totalText' => \Rupiah::getRupiah($totalPemasukan),
+            'series' => [$totalTransaksi, $totalSatuan, $totalKuota, $pemasukanManualLain]
+        ]);
     }
 }
