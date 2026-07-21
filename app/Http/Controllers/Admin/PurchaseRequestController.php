@@ -8,6 +8,7 @@ use App\Models\Pemasukan;
 use App\Models\PurchaseRequest;
 use App\Notifications\PaketDikonfirmasiNotification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class PurchaseRequestController extends Controller
 {
@@ -48,7 +49,7 @@ class PurchaseRequestController extends Controller
 
     public function confirm($id)
     {
-        $purchase = PurchaseRequest::findOrFail($id);
+        $purchase = PurchaseRequest::lockForUpdate()->findOrFail($id);
 
         if ($purchase->status !== 'pending') {
             return back()->with('error', 'Permintaan sudah dikonfirmasi sebelumnya.');
@@ -59,27 +60,28 @@ class PurchaseRequestController extends Controller
 
         $kategori = $purchase->package_category;
 
-        $kuota = KuotaLaundry::firstOrNew([
-            'user_id' => $purchase->user_id,
-            'kategori' => $kategori,
-        ]);
+        DB::transaction(function () use ($purchase, $kuotaTambah, $kategori) {
+            $kuota = KuotaLaundry::firstOrNew([
+                'user_id' => $purchase->user_id,
+                'kategori' => $kategori,
+            ]);
 
-        $kuota->kuota = ($kuota->kuota ?? 0) + $kuotaTambah;
-        $kuota->save();
+            $kuota->kuota = ($kuota->kuota ?? 0) + $kuotaTambah;
+            $kuota->save();
 
-        $purchase->status = 'confirmed';
-        $purchase->save();
+            $purchase->status = 'confirmed';
+            $purchase->save();
 
-        // ✅ Tambahkan ke pemasukan
-        Pemasukan::create([
-            'pemasukan' => $purchase->user->name,
-            'kategori' => 'Paket (' . $purchase->package_category . ')',
-            'harga' => $purchase->package_price,
-            'jumlah' => $kuotaTambah,
-            'total' => $purchase->package_price,
-        ]);
+            Pemasukan::create([
+                'pemasukan' => $purchase->user->name,
+                'kategori' => 'Paket (' . $purchase->package_category . ')',
+                'harga' => $purchase->package_price,
+                'jumlah' => $kuotaTambah,
+                'total' => $purchase->package_price,
+                'tanggal' => date('d-m-Y'),
+            ]);
+        });
 
-        // Kirim notifikasi ke customer
         $purchase->user->notify(new PaketDikonfirmasiNotification($purchase));
 
         return back()->with('success', 'Pembelian berhasil dikonfirmasi dan kuota (' . $kuotaTambah . ' kg) ditambahkan untuk kategori ' . $kategori . '.');

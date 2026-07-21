@@ -19,6 +19,16 @@ class PurchaseController extends Controller
                 'package_category' => 'required',
             ]);
 
+            // Throttle: cegah double-submit dalam 2 menit
+            $recent = PurchaseRequest::where('user_id', auth()->id())
+                ->where('created_at', '>=', now()->subMinutes(2))
+                ->latest()
+                ->first();
+
+            if ($recent) {
+                return response()->json(['message' => 'Permintaan paket baru saja dikirim. Tunggu konfirmasi admin.'], 429);
+            }
+
             $purchase = PurchaseRequest::create([
                 'user_id' => auth()->id(),
                 'package_kg' => $request->package_kg,

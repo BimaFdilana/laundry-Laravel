@@ -22,6 +22,7 @@
             <div class="card-body">
                 <form action="{{ route('pelayanan.store') }}" method="POST">
                     @csrf
+                    <input type="hidden" name="idempotency_key" value="{{ $idempotencyKey }}">
                     <div class="form-body">
                         <div class="row p-t-20">
                             <!-- Pilih Customer -->
@@ -301,6 +302,7 @@
         // Prevent double submit
         $('form').submit(function() {
             var btn = $(this).find('button[type="submit"]');
+            if (btn.prop('disabled')) return false;
             btn.prop('disabled', true);
             btn.text('Menyimpan...');
         });

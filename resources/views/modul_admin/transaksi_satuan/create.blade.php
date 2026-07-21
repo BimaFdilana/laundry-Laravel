@@ -22,6 +22,7 @@
         <div class="card-body">
             <form action="{{ route('transaksi-satuan.store') }}" method="POST">
                 @csrf
+                <input type="hidden" name="idempotency_key" value="{{ $idempotencyKey }}">
                 <div class="form-body">
                     <div class="row">
                         <!-- Customer -->
@@ -256,6 +257,14 @@
         // Hapus baris
         $(document).on('click', '.removeRow', function() {
             $(this).closest('tr').remove();
+        });
+
+        // Prevent double submit
+        $('form').submit(function() {
+            var btn = $(this).find('button[type="submit"]');
+            if (btn.prop('disabled')) return false;
+            btn.prop('disabled', true);
+            btn.text('Menyimpan...');
         });
     </script>
 @endsection

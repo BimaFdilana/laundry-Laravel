@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Session;
 use App\Notifications\{StatusUpdateNotification};
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
+use Illuminate\Database\QueryException;
 
 class PelayananController extends Controller
 
@@ -64,9 +66,12 @@ class PelayananController extends Controller
         $customers = User::where('auth', 'Customer')->orderBy('name', 'asc')->get();
         $karyawans = Karyawan::orderBy('name', 'asc')->get();
 
+        $idempotencyKey = Str::uuid()->toString();
+
         return view('modul_admin.transaksi.addorder', compact(
             'currentUser',
             'newID',
+            'idempotencyKey',
             'cek_harga',
             'harga',
             'harga_value',
@@ -80,6 +85,7 @@ class PelayananController extends Controller
     {
         $request->validate([
             'invoice'           => 'required|unique:transaksis,invoice',
+            'idempotency_key'   => 'required|uuid',
             'tgl_transaksi'     => 'required',
             'kg'                => 'required|regex:/^[0-9.]+$/',
             'hari'              => 'required',
@@ -98,6 +104,7 @@ class PelayananController extends Controller
 
         $order = new Transaksi();
         $order->invoice          = $request->invoice;
+        $order->idempotency_key  = $request->idempotency_key;
         $order->tgl_transaksi = Carbon::parse($request->tgl_transaksi);
         $order->status_payment   = 'Pending';
         $order->harga_id         = $request->harga_id;
@@ -186,8 +193,17 @@ class PelayananController extends Controller
             $order->info_pembayaran = 'Total Harga: Rp ' . number_format($order->harga_akhir, 0, ',', '.');
         }
 
-        // Simpan order seperti biasa
-        $order->save();
+        // Simpan order dengan idempotency: replay POST bawa key sama → redirect ke record existing
+        try {
+            $order->save();
+        } catch (QueryException $e) {
+            $existing = Transaksi::where('idempotency_key', $request->idempotency_key)->first();
+            if ($existing) {
+                Session::flash('info', 'Order sudah pernah dibuat (duplikat dicegah).');
+                return redirect()->route('transaksi.print', $existing->id);
+            }
+            throw $e;
+        }
 
         // Kirim notifikasi ke customer saat order dibuat
         if ($customer) {
