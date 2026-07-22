@@ -8,6 +8,7 @@ use App\Models\Pemasukan;
 use App\Models\PurchaseRequest;
 use App\Notifications\PaketDikonfirmasiNotification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class PurchaseRequestController extends Controller
 {
@@ -48,41 +49,52 @@ class PurchaseRequestController extends Controller
 
     public function confirm($id)
     {
-        $purchase = PurchaseRequest::findOrFail($id);
+        $result = DB::transaction(function () use ($id) {
+            $purchase = PurchaseRequest::lockForUpdate()->findOrFail($id);
 
-        if ($purchase->status !== 'pending') {
+            if ($purchase->status !== 'pending') {
+                return ['purchase' => $purchase, 'already_confirmed' => true];
+            }
+
+            preg_match('/(\d+)/', $purchase->package_kg, $match);
+            $kuotaTambah = isset($match[1]) ? (int) $match[1] : 0;
+            $kategori = $purchase->package_category;
+
+            $kuota = KuotaLaundry::firstOrNew([
+                'user_id' => $purchase->user_id,
+                'kategori' => $kategori,
+            ]);
+
+            $kuota->kuota = ($kuota->kuota ?? 0) + $kuotaTambah;
+            $kuota->save();
+
+            $purchase->status = 'confirmed';
+            $purchase->save();
+
+            Pemasukan::create([
+                'pemasukan' => $purchase->user->name,
+                'kategori' => 'Paket (' . $purchase->package_category . ')',
+                'harga' => $purchase->package_price,
+                'jumlah' => $kuotaTambah,
+                'total' => $purchase->package_price,
+                'tanggal' => date('d-m-Y'),
+            ]);
+
+            return [
+                'purchase' => $purchase,
+                'already_confirmed' => false,
+                'kuota' => $kuotaTambah,
+                'kategori' => $kategori,
+            ];
+        });
+
+        if ($result['already_confirmed']) {
             return back()->with('error', 'Permintaan sudah dikonfirmasi sebelumnya.');
         }
 
-        preg_match('/(\d+)/', $purchase->package_kg, $match);
-        $kuotaTambah = isset($match[1]) ? (int) $match[1] : 0;
+        $result['purchase']->user->notify(new PaketDikonfirmasiNotification($result['purchase']));
 
-        $kategori = $purchase->package_category;
-
-        $kuota = KuotaLaundry::firstOrNew([
-            'user_id' => $purchase->user_id,
-            'kategori' => $kategori,
-        ]);
-
-        $kuota->kuota = ($kuota->kuota ?? 0) + $kuotaTambah;
-        $kuota->save();
-
-        $purchase->status = 'confirmed';
-        $purchase->save();
-
-        // ✅ Tambahkan ke pemasukan
-        Pemasukan::create([
-            'pemasukan' => $purchase->user->name,
-            'kategori' => 'Paket (' . $purchase->package_category . ')',
-            'harga' => $purchase->package_price,
-            'jumlah' => $kuotaTambah,
-            'total' => $purchase->package_price,
-        ]);
-
-        // Kirim notifikasi ke customer
-        $purchase->user->notify(new PaketDikonfirmasiNotification($purchase));
-
-        return back()->with('success', 'Pembelian berhasil dikonfirmasi dan kuota (' . $kuotaTambah . ' kg) ditambahkan untuk kategori ' . $kategori . '.');
+        return back()->with('success', 'Pembelian berhasil dikonfirmasi dan kuota (' . $result['kuota'] . ' kg) ditambahkan untuk kategori ' . $result['kategori'] . '.');
     }
 
     public function destroy($id)

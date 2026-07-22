@@ -11,6 +11,7 @@ class Transaksi extends Model
 
     protected $fillable = [
         'invoice',
+        'idempotency_key',
         'karyawan_id',
         'customer_id',
         'customer',

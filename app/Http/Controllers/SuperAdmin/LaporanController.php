@@ -5,12 +5,14 @@ namespace App\Http\Controllers\SuperAdmin;
 use App\Http\Controllers\Controller;
 use App\Models\{LaundrySetting, Pemasukan, Transaksi, TransaksiSatuan};
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class LaporanController extends Controller
 {
     public function harian()
     {
+        request()->validate(['tanggal' => 'nullable|date']);
         $tanggal = request('tanggal', now()->toDateString());
 
         // Total Kg di tanggal terpilih
@@ -118,6 +120,10 @@ class LaporanController extends Controller
 
     public function bulanan()
     {
+        request()->validate([
+            'bulan' => 'nullable|integer|min:1|max:12',
+            'tahun' => 'nullable|integer|min:2000|max:2100',
+        ]);
         $bulan = request('bulan', now()->month);
         $tahun = request('tahun', now()->year);
 
@@ -286,6 +292,7 @@ class LaporanController extends Controller
 
     public function tahunan()
     {
+        request()->validate(['tahun' => 'nullable|integer|min:2000|max:2100']);
         $tahun = request('tahun', now()->year);
 
         // Total Kg tahun terpilih
@@ -534,6 +541,7 @@ class LaporanController extends Controller
 
     public function perbandingan()
     {
+        request()->validate(['tanggal' => 'nullable|date']);
         $acuan = request('tanggal') ? Carbon::parse(request('tanggal')) : Carbon::now();
 
         $hariIni = $acuan->copy();

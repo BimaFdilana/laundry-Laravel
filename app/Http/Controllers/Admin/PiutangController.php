@@ -102,6 +102,10 @@ class PiutangController extends Controller
             $transaksi->save();
         } elseif ($tipe === 'paket') {
             $pemasukan = Pemasukan::findOrFail($id);
+            // Cegah append "Lunas" berkali-kali
+            if (stripos($pemasukan->keterangan ?? '', 'Lunas') !== false) {
+                return redirect()->route('admin.piutang.index')->with('info', 'Piutang sudah lunas sebelumnya.');
+            }
             $keterangan = preg_replace('/nyusul/i', '', $pemasukan->keterangan ?? '');
             $pemasukan->keterangan = trim($keterangan, ' ,;-');
             if (empty($pemasukan->keterangan)) {

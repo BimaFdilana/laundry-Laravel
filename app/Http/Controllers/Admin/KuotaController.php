@@ -67,7 +67,6 @@ class KuotaController extends Controller
 
         $user = User::find($request->user_id);
 
-        // Simpan ke pemasukan
         Pemasukan::create([
             'pemasukan' => $user->name,
             'kategori' => 'Kuota (' . $request->kategori . ')',
@@ -75,6 +74,7 @@ class KuotaController extends Controller
             'jumlah' => $request->kuota,
             'total' => $request->harga - ($request->diskon ?? 0),
             'keterangan' => 'Diskon: ' . ($request->diskon ?? 0) . '. ' . $request->keterangan,
+            'tanggal' => date('d-m-Y'),
         ]);
 
         return redirect('kuota')->with('success', 'Kuota berhasil diperbarui.');

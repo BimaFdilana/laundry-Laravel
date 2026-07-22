@@ -9,6 +9,8 @@ use App\Notifications\StatusUpdateNotification;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
+use Illuminate\Database\QueryException;
 
 class TransaksiSatuanController extends Controller
 {
@@ -51,11 +53,14 @@ class TransaksiSatuanController extends Controller
         } while ($exists);
         // =============================================
 
+        $idempotencyKey = Str::uuid()->toString();
+
         return view('modul_admin.transaksi_satuan.create', compact(
             'satuans',
             'karyawans',
             'customers',
-            'invoice'
+            'invoice',
+            'idempotencyKey'
         ));
     }
 
@@ -64,6 +69,7 @@ class TransaksiSatuanController extends Controller
         $request->validate([
             'tgl_transaksi'       => 'required',
             'invoice'             => 'required|unique:transaksi_satuans,invoice',
+            'idempotency_key'     => 'required|uuid',
             'customer_id'         => 'required|exists:users,id',
             'karyawan_id'         => 'required|exists:karyawans,id',
             'jenis_pembayaran'    => 'required|in:Tunai,Transfer',
@@ -75,25 +81,48 @@ class TransaksiSatuanController extends Controller
             'status_bayar'        => 'nullable|in:lunas,belum_bayar',
         ]);
 
+        // Throttle: cegah re-submit manusia (invoice beda, data sama dalam 5 menit)
+        $recent = TransaksiSatuan::where('customer_id', $request->customer_id)
+            ->where('tgl_transaksi', Carbon::parse($request->tgl_transaksi)->format('Y-m-d'))
+            ->where('created_at', '>=', Carbon::now()->subMinutes(5))
+            ->orderBy('id', 'desc')
+            ->first();
+
+        if ($recent) {
+            Session::flash('info', 'Transaksi satuan untuk customer ini baru saja dibuat (duplikat dicegah).');
+            return redirect()->route('transaksi-satuan.print', $recent->id);
+        }
+
         $customer = User::findOrFail($request->customer_id);
 
         $tgl = Carbon::parse($request->tgl_transaksi);
-        $transaksi = TransaksiSatuan::create([
-            'invoice'           => $request->invoice,
-            'karyawan_id'       => $request->karyawan_id,
-            'customer_id'       => $customer->id,
-            'customer'          => $customer->name,
-            'email_customer'    => $customer->email,
-            'tgl_transaksi'     => $tgl,
-            'status_order'      => 'Antrian',
-            'status_payment'    => $request->status_bayar === 'lunas' ? 'Success' : 'Pending',
-            'jenis_pembayaran'  => $request->jenis_pembayaran,
-            'tgl'               => Carbon::now()->day,
-            'bulan'             => Carbon::now()->month,
-            'tahun'             => Carbon::now()->year,
-            'catatan_admin'     => $request->catatan_admin,
-            'jenis_pewangi'     => $request->jenis_pewangi,
-        ]);
+
+        try {
+            $transaksi = TransaksiSatuan::create([
+                'invoice'           => $request->invoice,
+                'idempotency_key'   => $request->idempotency_key,
+                'karyawan_id'       => $request->karyawan_id,
+                'customer_id'       => $customer->id,
+                'customer'          => $customer->name,
+                'email_customer'    => $customer->email,
+                'tgl_transaksi'     => $tgl,
+                'status_order'      => 'Antrian',
+                'status_payment'    => $request->status_bayar === 'lunas' ? 'Success' : 'Pending',
+                'jenis_pembayaran'  => $request->jenis_pembayaran,
+                'tgl'               => Carbon::now()->day,
+                'bulan'             => Carbon::now()->month,
+                'tahun'             => Carbon::now()->year,
+                'catatan_admin'     => $request->catatan_admin,
+                'jenis_pewangi'     => $request->jenis_pewangi,
+            ]);
+        } catch (QueryException $e) {
+            $existing = TransaksiSatuan::where('idempotency_key', $request->idempotency_key)->first();
+            if ($existing) {
+                Session::flash('info', 'Transaksi satuan sudah pernah dibuat (duplikat dicegah).');
+                return redirect()->route('transaksi-satuan.print', $existing->id);
+            }
+            throw $e;
+        }
 
 
         $total = 0;
@@ -199,11 +228,12 @@ class TransaksiSatuanController extends Controller
 
     public function ubahStatusOrder(Request $request)
     {
-        $statusorder = TransaksiSatuan::find($request->id);
+        $request->validate([
+            'id' => 'required|integer|exists:transaksi_satuans,id',
+            'status_order' => 'required|in:Antrian,Process,Done,Delivery',
+        ]);
 
-        if (!$statusorder) {
-            return response()->json(['error' => 'Transaksi satuan tidak ditemukan.'], 404);
-        }
+        $statusorder = TransaksiSatuan::findOrFail($request->id);
 
         $statusorder->update([
             'status_order' => $request->status_order,
@@ -264,11 +294,12 @@ class TransaksiSatuanController extends Controller
 
     public function ubahStatusBayar(Request $request)
     {
-        $transaksi = TransaksiSatuan::find($request->id);
+        $request->validate([
+            'id' => 'required|integer|exists:transaksi_satuans,id',
+            'status_payment' => 'required|in:Pending,Success',
+        ]);
 
-        if (!$transaksi) {
-            return response()->json(['error' => 'Transaksi satuan tidak ditemukan.'], 404);
-        }
+        $transaksi = TransaksiSatuan::findOrFail($request->id);
 
         $transaksi->update([
             'status_payment' => $request->status_payment,

@@ -207,8 +207,7 @@ class PemasukanController extends Controller
             return Str::contains(strtolower($item->keterangan ?? ''), 'nyusul');
         })->sum('total');
 
-        // Jika ada data tambahan dari purchaseKuotaList (yang semua dianggap lunas):
-        $totalKuotaLunas += $purchaseKuotaList->sum('package_price');
+        // Pembelian paket sudah tercatat di pemasukans saat dikonfirmasi; jangan hitung dua kali.
 
         // Total Transaksi & Utang (FILTERED)
         $totalTransaksi = $regulerQuery->clone()->where('status_payment', 'Success')->sum('harga_akhir');
@@ -311,7 +310,7 @@ class PemasukanController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'tanggal'     => 'required|string',
+            'tanggal'     => 'required|date',
             'pemasukan'   => 'required|string|max:255',
             'kategori'    => 'required|string|max:100',
             'harga'       => 'required|numeric|min:0',
@@ -319,7 +318,7 @@ class PemasukanController extends Controller
             'keterangan'  => 'nullable|string',
         ]);
 
-        Pemasukan::create($request->all());
+        Pemasukan::create($request->only(['tanggal', 'pemasukan', 'kategori', 'harga', 'jumlah', 'keterangan']));
 
         return redirect()->route('pemasukan.index')->with('success', 'Data pemasukan berhasil ditambahkan.');
     }
@@ -334,7 +333,7 @@ class PemasukanController extends Controller
     public function update(Request $request, Pemasukan $pemasukan)
     {
         $request->validate([
-            'tanggal'     => 'required|string',
+            'tanggal'     => 'required|date',
             'pemasukan'   => 'required|string|max:255',
             'kategori'    => 'required|string|max:100',
             'harga'       => 'required|numeric|min:0',
@@ -342,7 +341,7 @@ class PemasukanController extends Controller
             'keterangan'  => 'nullable|string',
         ]);
 
-        $pemasukan->update($request->all());
+        $pemasukan->update($request->only(['tanggal', 'pemasukan', 'kategori', 'harga', 'jumlah', 'keterangan']));
 
         return redirect()->route('pemasukan.index')->with('success', 'Data pemasukan berhasil diupdate.');
     }
