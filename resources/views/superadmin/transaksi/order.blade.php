@@ -93,13 +93,19 @@
                                 <td>{{ $item->info_pembayaran ?? '-' }}</td>
                                 <td>
                                     @if ($item->status_payment == 'Pending')
-                                        <a href="{{ route('superadmin.ubahstatusbayar', ['id' => $item->id, 'status_payment' => 'Success']) }}"
-                                            class="btn btn-sm btn-danger"
-                                            onclick="return confirm('Ubah status pembayaran menjadi Lunas?')">Belum Bayar</a>
+                                        <form action="{{ route('superadmin.ubahstatusbayar', $item->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Ubah status pembayaran menjadi Lunas?')">
+                                            @csrf
+                                            @method('PUT')
+                                            <input type="hidden" name="status_payment" value="Success">
+                                            <button type="submit" class="btn btn-sm btn-danger">Belum Bayar</button>
+                                        </form>
                                     @elseif($item->status_payment == 'Success')
-                                        <a href="{{ route('superadmin.ubahstatusbayar', ['id' => $item->id, 'status_payment' => 'Pending']) }}"
-                                            class="btn btn-sm btn-success"
-                                            onclick="return confirm('Ubah status pembayaran menjadi Belum Bayar?')">Sudah Dibayar</a>
+                                        <form action="{{ route('superadmin.ubahstatusbayar', $item->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Ubah status pembayaran menjadi Belum Bayar?')">
+                                            @csrf
+                                            @method('PUT')
+                                            <input type="hidden" name="status_payment" value="Pending">
+                                            <button type="submit" class="btn btn-sm btn-success">Sudah Dibayar</button>
+                                        </form>
                                     @endif
                                 </td>
                                 <td>

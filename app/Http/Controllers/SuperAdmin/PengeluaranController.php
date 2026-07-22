@@ -39,7 +39,7 @@ class PengeluaranController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'tanggal'     => 'required|string',
+            'tanggal'     => 'required|date',
             'pengeluaran' => 'required|string|max:255',
             'kategori'    => 'required|string|max:100',
             'harga'       => 'required|numeric|min:0',
@@ -47,7 +47,7 @@ class PengeluaranController extends Controller
             'keterangan'  => 'nullable|string',
         ]);
 
-        Pengeluaran::create($request->all());
+        Pengeluaran::create($request->only(['tanggal', 'pengeluaran', 'kategori', 'harga', 'jumlah', 'keterangan']));
 
         return redirect()->route('pengeluaran.index')->with('success', 'Data pengeluaran berhasil ditambahkan.');
     }
@@ -62,7 +62,7 @@ class PengeluaranController extends Controller
     public function update(Request $request, Pengeluaran $pengeluaran)
     {
         $request->validate([
-            'tanggal'     => 'required|string',
+            'tanggal'     => 'required|date',
             'pengeluaran' => 'required|string|max:255',
             'kategori'    => 'required|string|max:100',
             'harga'       => 'required|numeric|min:0',
@@ -70,7 +70,7 @@ class PengeluaranController extends Controller
             'keterangan'  => 'nullable|string',
         ]);
 
-        $pengeluaran->update($request->all());
+        $pengeluaran->update($request->only(['tanggal', 'pengeluaran', 'kategori', 'harga', 'jumlah', 'keterangan']));
 
         return redirect()->route('pengeluaran.index')->with('success', 'Data pengeluaran berhasil diupdate.');
     }

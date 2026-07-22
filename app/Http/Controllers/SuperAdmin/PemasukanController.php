@@ -311,7 +311,7 @@ class PemasukanController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'tanggal'     => 'required|string',
+            'tanggal'     => 'required|date',
             'pemasukan'   => 'required|string|max:255',
             'kategori'    => 'required|string|max:100',
             'harga'       => 'required|numeric|min:0',
@@ -319,7 +319,7 @@ class PemasukanController extends Controller
             'keterangan'  => 'nullable|string',
         ]);
 
-        Pemasukan::create($request->all());
+        Pemasukan::create($request->only(['tanggal', 'pemasukan', 'kategori', 'harga', 'jumlah', 'keterangan']));
 
         return redirect()->route('pemasukan.index')->with('success', 'Data pemasukan berhasil ditambahkan.');
     }
@@ -334,7 +334,7 @@ class PemasukanController extends Controller
     public function update(Request $request, Pemasukan $pemasukan)
     {
         $request->validate([
-            'tanggal'     => 'required|string',
+            'tanggal'     => 'required|date',
             'pemasukan'   => 'required|string|max:255',
             'kategori'    => 'required|string|max:100',
             'harga'       => 'required|numeric|min:0',
@@ -342,7 +342,7 @@ class PemasukanController extends Controller
             'keterangan'  => 'nullable|string',
         ]);
 
-        $pemasukan->update($request->all());
+        $pemasukan->update($request->only(['tanggal', 'pemasukan', 'kategori', 'harga', 'jumlah', 'keterangan']));
 
         return redirect()->route('pemasukan.index')->with('success', 'Data pemasukan berhasil diupdate.');
     }

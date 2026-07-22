@@ -302,7 +302,12 @@ class PelayananController extends Controller
     // Proses Ubah Status Order
     public function ubahstatusorder(Request $request)
     {
-        $statusorder = Transaksi::find($request->id);
+        $request->validate([
+            'id' => 'required|integer|exists:transaksis,id',
+            'status_order' => 'required|in:Antrian,Process,Done,Delivery',
+        ]);
+
+        $statusorder = Transaksi::findOrFail($request->id);
 
         $statusorder->update([
             'status_order' => $request->status_order,
@@ -364,7 +369,12 @@ class PelayananController extends Controller
     // Proses Ubah Status Pembayaran
     public function ubahstatusbayar(Request $request)
     {
-        $statusbayar = Transaksi::find($request->id);
+        $request->validate([
+            'id' => 'required|integer|exists:transaksis,id',
+            'status_payment' => 'required|in:Pending,Success',
+        ]);
+
+        $statusbayar = Transaksi::findOrFail($request->id);
         $statusbayar->update([
             'status_payment' => $request->status_payment,
         ]);

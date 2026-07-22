@@ -21,9 +21,9 @@ class SettingsController extends Controller
     // Check Setting Theme
     public function set_theme(Request $request)
     {
-        $id = Auth::id();
-        $user = User::all();
+        $request->validate(['theme' => 'nullable|in:0,1']);
 
+        $id = Auth::id();
         $set_theme = User::findOrFail($id);
         if ($request->theme == NULL) {
             $set_theme->theme = '0';
@@ -40,6 +40,12 @@ class SettingsController extends Controller
     // Setting Laundry Target
     public function set_target_laundry(Request $request, $id)
     {
+        $request->validate([
+            'target_day' => 'required|numeric|min:0',
+            'target_month' => 'required|numeric|min:0',
+            'target_year' => 'required|numeric|min:0',
+        ]);
+
         $set_target = LaundrySetting::findOrFail($id);
         $set_target->target_day = $request->target_day;
         $set_target->target_month = $request->target_month;

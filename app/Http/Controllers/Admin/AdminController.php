@@ -42,14 +42,17 @@ class AdminController extends Controller
     // Proses edit profile
     public function edit_profile(Request $request)
     {
-        $profile = User::find($request->id_profile);
-        $profile->update([
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . Auth::id(),
+        ]);
+
+        User::whereKey(Auth::id())->update([
             'name' => $request->name,
             'email' => $request->email,
         ]);
 
-        Session::flash('success', 'Update Profile Berhasil');
-        return $profile;
+        return redirect()->back()->with('success', 'Update Profile Berhasil');
     }
 
     public function changePassword(Request $request)

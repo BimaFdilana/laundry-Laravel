@@ -38,13 +38,21 @@ class KaryawanController extends Controller
 
     public function edit($id)
     {
-        $edit = Karyawan::find($id);
+        $edit = Karyawan::findOrFail($id);
         return view('superadmin.karyawan.editkry', compact('edit'));
     }
 
     public function update(Request $request, $id)
     {
-        $addkaryawan = Karyawan::find($id);
+        $request->validate([
+            'name' => 'required|string|max:50',
+            'email' => 'required|email|max:50|unique:karyawans,email,' . $id,
+            'alamat' => 'required|string|max:50',
+            'no_telp' => 'required|string|max:30',
+            'kelamin' => 'required|in:Laki-laki,Perempuan',
+        ]);
+
+        $addkaryawan = Karyawan::findOrFail($id);
         $addkaryawan->name = $request->name;
         $addkaryawan->email = $request->email;
         $addkaryawan->alamat = $request->alamat;

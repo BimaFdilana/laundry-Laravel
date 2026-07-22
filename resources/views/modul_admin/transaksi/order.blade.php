@@ -190,10 +190,9 @@
             var customer = $("#customer_pay").val();
             var status_payment = $("#status_payment").val();
 
-            $.get('{{ Url('ubah-status-bayar') }}', {
+            $.post('{{ Url('ubah-status-bayar') }}', {
                 '_token': $('meta[name=csrf-token]').attr('content'),
                 id: id,
-                customer: customer,
                 status_payment: status_payment
             }, function(resp) {
                 $("#id_bayar").val('');

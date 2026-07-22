@@ -126,15 +126,12 @@
             var name = $("#name").val();
             var email = $("#email").val();
 
-            $.get('{{ Url('profile-superadmin-edit') }}', {
-                '_token': $('meta[name=csrf-token]').attr('content'),
-                id_profile: id_profile,
+            $.post('{{ route('superadmin.profile.update') }}', {
+                '_token': '{{ csrf_token() }}',
+                '_method': 'PUT',
                 name: name,
                 email: email
-            }, function(resp) {
-                $("#id_harga").val('');
-                $("#name").val('');
-                $("#email").val('');
+            }, function() {
                 location.reload();
             });
         });

@@ -63,11 +63,10 @@ Route::middleware('auth')->group(function () {
         Route::post('/superadmin/notif-readall', [SuperAdminNotifikasiController::class, 'readAllNotif'])->name('superadmin.notif.readall');
 
         // Profile
-        Route::get('profile-superadmin/{id}', 'SuperAdmin\SuperAdminController@profile');
-        Route::get('profile-superadmin-edit', 'SuperAdmin\SuperAdminController@edit_profile');
+        Route::get('profile-superadmin/{id}', 'SuperAdmin\SuperAdminController@profile')->name('superadmin.profile');
+        Route::put('profile-superadmin-edit', 'SuperAdmin\SuperAdminController@edit_profile')->name('superadmin.profile.update');
 
         // Finance
-        Route::get('data-finance', 'SuperAdmin\SuperAdminController@finance');
         Route::get('data-finance', [SuperAdminController::class, 'finance'])->name('superadmin.finance');
         Route::resource('pengeluaran', 'SuperAdmin\PengeluaranController');
         Route::resource('pemasukan', 'SuperAdmin\PemasukanController');
@@ -133,8 +132,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/superadmin/transaksi-satuan', [SuperAdminTransaksiController::class, 'satuan'])->name('superadmin.transaksisatuan');
         Route::delete('/superadmin/transaksi/{id}', [SuperAdminTransaksiController::class, 'destroy'])->name('superadmin.transaksi.destroy');
         Route::delete('/superadmin/transaksi-satuan/{id}', [SuperAdminTransaksiController::class, 'destroysatuan'])->name('superadmin.transaksisatuan.destroy');
-        Route::get('/superadmin/ubah-status-bayar', [SuperAdminTransaksiController::class, 'ubahstatusbayar'])->name('superadmin.ubahstatusbayar');
-        Route::get('/superadmin/ubah-status-bayar-satuan', [SuperAdminTransaksiController::class, 'ubahstatusbayarsatuan'])->name('superadmin.ubahstatusbayarsatuan');
+        Route::put('/superadmin/ubah-status-bayar/{id}', [SuperAdminTransaksiController::class, 'ubahstatusbayar'])->name('superadmin.ubahstatusbayar');
+        Route::put('/superadmin/ubah-status-bayar-satuan/{id}', [SuperAdminTransaksiController::class, 'ubahstatusbayarsatuan'])->name('superadmin.ubahstatusbayarsatuan');
     });
 
     // Modul Admin
@@ -160,14 +159,14 @@ Route::middleware('auth')->group(function () {
         // Transaksi Satuan
         Route::resource('transaksi-satuan', 'Admin\TransaksiSatuanController');
         Route::get('add-order-satuan', 'Admin\TransaksiSatuanController@create');
-        Route::get('ubah-status-order-satuan', 'Admin\TransaksiSatuanController@ubahstatusorder');
-        Route::get('ubah-status-bayar-satuan', 'Admin\TransaksiSatuanController@ubahstatusbayar');
+        Route::post('ubah-status-order-satuan', 'Admin\TransaksiSatuanController@ubahstatusorder');
+        Route::post('ubah-status-bayar-satuan', 'Admin\TransaksiSatuanController@ubahstatusbayar');
         Route::post('update-ket-delivery-satuan', 'Admin\TransaksiSatuanController@updateKetDelivery');
 
         // Pelayanan
         Route::resource('pelayanan', 'Admin\PelayananController');
-        Route::get('ubah-status-order', 'Admin\PelayananController@ubahstatusorder');
-        Route::get('ubah-status-bayar', 'Admin\PelayananController@ubahstatusbayar');
+        Route::post('ubah-status-order', 'Admin\PelayananController@ubahstatusorder');
+        Route::post('ubah-status-bayar', 'Admin\PelayananController@ubahstatusbayar');
         Route::post('update-ket-delivery', 'Admin\PelayananController@updateKetDelivery');
 
         // Print Transaksi
@@ -196,7 +195,7 @@ Route::middleware('auth')->group(function () {
 
         // Profile
         Route::get('profile-admin/{id}', 'Admin\AdminController@profile');
-        Route::get('profile-admin-edit', 'Admin\AdminController@edit_profile');
+        Route::put('profile-admin-edit', 'Admin\AdminController@edit_profile')->name('profile.admin.update');
 
         // Paket
         Route::resource('konfirmasi', 'Admin\PurchaseRequestController');

@@ -228,11 +228,12 @@ class TransaksiSatuanController extends Controller
 
     public function ubahStatusOrder(Request $request)
     {
-        $statusorder = TransaksiSatuan::find($request->id);
+        $request->validate([
+            'id' => 'required|integer|exists:transaksi_satuans,id',
+            'status_order' => 'required|in:Antrian,Process,Done,Delivery',
+        ]);
 
-        if (!$statusorder) {
-            return response()->json(['error' => 'Transaksi satuan tidak ditemukan.'], 404);
-        }
+        $statusorder = TransaksiSatuan::findOrFail($request->id);
 
         $statusorder->update([
             'status_order' => $request->status_order,
@@ -293,11 +294,12 @@ class TransaksiSatuanController extends Controller
 
     public function ubahStatusBayar(Request $request)
     {
-        $transaksi = TransaksiSatuan::find($request->id);
+        $request->validate([
+            'id' => 'required|integer|exists:transaksi_satuans,id',
+            'status_payment' => 'required|in:Pending,Success',
+        ]);
 
-        if (!$transaksi) {
-            return response()->json(['error' => 'Transaksi satuan tidak ditemukan.'], 404);
-        }
+        $transaksi = TransaksiSatuan::findOrFail($request->id);
 
         $transaksi->update([
             'status_payment' => $request->status_payment,

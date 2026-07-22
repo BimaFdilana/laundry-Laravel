@@ -86,20 +86,22 @@ class TransaksiController extends Controller
         return redirect()->route('superadmin.transaksisatuan')->with('success', 'Transaksi satuan beserta detailnya berhasil dihapus.');
     }
 
-    public function ubahstatusbayar(Request $request)
+    public function ubahstatusbayar(Request $request, $id)
     {
-        $transaksi = Transaksi::find($request->id);
-        $transaksi->update([
+        $request->validate(['status_payment' => 'required|in:Pending,Success']);
+
+        Transaksi::findOrFail($id)->update([
             'status_payment' => $request->status_payment,
         ]);
 
         return redirect()->route('superadmin.transaksi')->with('success', 'Status Pembayaran Berhasil Diubah!');
     }
 
-    public function ubahstatusbayarsatuan(Request $request)
+    public function ubahstatusbayarsatuan(Request $request, $id)
     {
-        $transaksi = TransaksiSatuan::find($request->id);
-        $transaksi->update([
+        $request->validate(['status_payment' => 'required|in:Pending,Success']);
+
+        TransaksiSatuan::findOrFail($id)->update([
             'status_payment' => $request->status_payment,
         ]);
 

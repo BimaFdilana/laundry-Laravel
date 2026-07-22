@@ -105,7 +105,7 @@ class CustomerController extends Controller
     {
         $request->validate([
             'name'    => 'required|string|max:255',
-            'email'   => 'required|email',
+            'email'   => 'required|email|unique:users,email,' . $id,
             'alamat'  => 'nullable|string',
             'no_telp' => 'nullable|string',
             'kelamin' => 'nullable|string',
@@ -152,7 +152,10 @@ class CustomerController extends Controller
      */
     public function destroy($id)
     {
-        $delete = User::find($id);
+        $delete = User::findOrFail($id);
+        if ($delete->auth !== 'Customer') {
+            return redirect('supercustomer')->with('error', 'Data bukan customer.');
+        }
         if ($delete->status == 'Active') {
             Session::flash('error', 'Error, Status Customer masih aktif');
         } else {

@@ -25,14 +25,17 @@ class SuperAdminController extends Controller
     // Proses edit profile
     public function edit_profile(Request $request)
     {
-        $profile = User::find($request->id_profile);
-        $profile->update([
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . Auth::id(),
+        ]);
+
+        User::whereKey(Auth::id())->update([
             'name' => $request->name,
             'email' => $request->email,
         ]);
 
-        Session::flash('success', 'Update Profile Berhasil');
-        return $profile;
+        return redirect()->back()->with('success', 'Update Profile Berhasil');
     }
 
     // Data Finance
@@ -319,10 +322,10 @@ class SuperAdminController extends Controller
     public function hargastore(Request $request)
     {
         $request->validate([
-            'nama' => 'required',
-            'jenis' => 'required',
-            'harga' => 'required',
-            'hari'  => 'required',
+            'nama' => 'required|string|max:255',
+            'jenis' => 'required|string|max:255',
+            'harga' => 'required|numeric|min:0',
+            'hari'  => 'required|numeric|min:0',
         ]);
 
         $addharga = new Harga();
@@ -354,7 +357,7 @@ class SuperAdminController extends Controller
         $harga->update([
             'nama' => $request->nama,
             'jenis' => $request->jenis,
-            'kg' => $request->kg,
+            'kg' => $request->input('kg', 1000),
             'harga' => $request->harga,
             'hari' => $request->hari,
             'status' => $request->status,
@@ -376,10 +379,10 @@ class SuperAdminController extends Controller
     public function satuanstore(Request $request)
     {
         $request->validate([
-            'nama' => 'required',
-            'jenis' => 'required',
-            'harga' => 'required',
-            'hari'  => 'required',
+            'nama' => 'required|string|max:255',
+            'jenis' => 'required|string|max:255',
+            'harga' => 'required|numeric|min:0',
+            'hari'  => 'required|numeric|min:0',
         ]);
 
         $addsatuan = new Satuan();
@@ -411,7 +414,7 @@ class SuperAdminController extends Controller
         $satuan->update([
             'nama' => $request->nama,
             'jenis' => $request->jenis,
-            'pcs' => $request->pcs,
+            'pcs' => $request->input('pcs', 1),
             'harga' => $request->harga,
             'hari' => $request->hari,
             'status' => $request->status,
