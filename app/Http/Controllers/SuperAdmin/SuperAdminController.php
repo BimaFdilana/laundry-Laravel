@@ -41,20 +41,37 @@ class SuperAdminController extends Controller
     // Data Finance
     public function finance(Request $request)
     {
+        $request->validate([
+            'hari' => 'nullable|integer|min:1|max:31',
+            'bulan' => 'nullable|integer|min:1|max:12',
+            'tahun' => 'nullable|integer|min:2000|max:2100',
+        ]);
+
         $today = Carbon::now();
         $hari = $request->hari;
         $bulan = $request->bulan;
         $tahun = $request->tahun;
+        $applyDateFilter = function ($query, $column = 'created_at') use ($request, $hari, $bulan, $tahun) {
+            if ($request->filled('hari') && $request->filled('bulan') && $request->filled('tahun')) {
+                return $query->whereDay($column, $hari)->whereMonth($column, $bulan)->whereYear($column, $tahun);
+            }
+            if ($request->filled('bulan') && $request->filled('tahun')) {
+                return $query->whereMonth($column, $bulan)->whereYear($column, $tahun);
+            }
+            if ($request->filled('tahun')) {
+                return $query->whereYear($column, $tahun);
+            }
+            return $query;
+        };
 
         // Diskon Transaksi Kiloan (jumlahkan langsung dari field disc)
-        $diskonKiloan = Transaksi::sum('disc');
+        $diskonKiloan = $applyDateFilter(Transaksi::query())->sum('disc');
 
         // Diskon Transaksi Satuan (jumlahkan langsung dari field disc)
-        $diskonSatuan = TransaksiSatuan::sum('disc');
+        $diskonSatuan = $applyDateFilter(TransaksiSatuan::query())->sum('disc');
 
         // Diskon Kuota
-        $diskonKuota = Pemasukan::where('kategori', 'LIKE', 'Kuota%')
-            ->pluck('keterangan') // ambil hanya kolom keterangan
+        $diskonKuota = $applyDateFilter(Pemasukan::where('kategori', 'LIKE', 'Kuota%'))->pluck('keterangan') // ambil hanya kolom keterangan
             ->map(function ($keterangan) {
                 // cari angka setelah "Diskon:"
                 preg_match('/Diskon:\s*(\d+)/i', $keterangan, $matches);
@@ -109,14 +126,14 @@ class SuperAdminController extends Controller
         $satuan = $satuanQuery->get();
         $totalSatuan = $satuan->sum('harga_akhir');
 
-        // Purchase Kuota
-        $purchaseKuotaList = \App\Models\PurchaseRequest::where('status', 'confirmed')
-            ->orderByDesc('created_at')
-            ->with('user')
-            ->get();
+        $totalPekerjaanSelesai = $applyDateFilter(Transaksi::whereIn('status_order', ['Done', 'Delivery']))->sum('harga_akhir')
+            + $applyDateFilter(TransaksiSatuan::whereIn('status_order', ['Done', 'Delivery']))->sum('harga_akhir');
+        $totalUangMuka = $applyDateFilter(Transaksi::where('status_payment', 'Success')->whereIn('status_order', ['Antrian', 'Process']))->sum('harga_akhir')
+            + $applyDateFilter(TransaksiSatuan::where('status_payment', 'Success')->whereIn('status_order', ['Antrian', 'Process']))->sum('harga_akhir');
+        $totalPiutangSelesai = $applyDateFilter(Transaksi::where('status_payment', 'Pending')->whereIn('status_order', ['Done', 'Delivery']))->sum('harga_akhir')
+            + $applyDateFilter(TransaksiSatuan::where('status_payment', 'Pending')->whereIn('status_order', ['Done', 'Delivery']))->sum('harga_akhir');
 
-        $totalPurchaseKuota = $purchaseKuotaList->sum('package_price');
-
+        // Kuota manual dan pembelian paket tercatat satu kali di tabel pemasukans
         // Kuota manual
         $kuotaListQuery = Pemasukan::where(function ($q) {
             $q->where('kategori', 'LIKE', '%kuota%')->orWhere('kategori', 'LIKE', '%paket%');
@@ -157,19 +174,8 @@ class SuperAdminController extends Controller
             return !Str::contains(strtolower($item->keterangan ?? ''), 'nyusul');
         })->sum('total');
 
-        // Jika ada data tambahan dari purchaseKuotaList (yang semua dianggap lunas):
-        $totalKuotaLunas += $purchaseKuotaList->sum('package_price');
-
         // Total Pemasukan
-        $totalPemasukanManualQuery = Pemasukan::query();
-
-        if ($request->filled('hari') && $request->filled('bulan') && $request->filled('tahun')) {
-            $totalPemasukanManualQuery->whereDay('tanggal', $hari)->whereMonth('tanggal', $bulan)->whereYear('tanggal', $tahun);
-        } elseif ($request->filled('bulan') && $request->filled('tahun')) {
-            $totalPemasukanManualQuery->whereMonth('tanggal', $bulan)->whereYear('tanggal', $tahun);
-        } elseif ($request->filled('tahun')) {
-            $totalPemasukanManualQuery->whereYear('tanggal', $tahun);
-        }
+        $totalPemasukanManualQuery = $applyDateFilter(Pemasukan::query());
 
         // Hitung total pemasukan manual (selain kuota/paket)
         $totalPemasukanManual = $totalPemasukanManualQuery->get()
@@ -197,11 +203,9 @@ class SuperAdminController extends Controller
         // Laba
         $labaBersih = $totalPemasukanBersih - $pengeluaran;
 
-        // Hitung Utang Transaksi Reguler
-        $utangTransaksi = Transaksi::where('status_payment', '!=', 'Success')->sum('harga_akhir');
-
-        // Hitung Utang Transaksi Satuan
-        $utangSatuan = TransaksiSatuan::where('status_payment', '!=', 'Success')->sum('harga_akhir');
+        // Hitung utang transaksi mengikuti filter periode
+        $utangTransaksi = $applyDateFilter(Transaksi::where('status_payment', 'Pending'))->sum('harga_akhir');
+        $utangSatuanTotal = $applyDateFilter(TransaksiSatuan::where('status_payment', 'Pending'))->sum('harga_akhir');
 
         // Hitung Kuota yang belum lunas ("nyusul")
         $totalKuotaPending = $kuotaList->filter(function ($item) {
@@ -209,13 +213,10 @@ class SuperAdminController extends Controller
         })->sum('total');
 
         // Gabungkan semua utang
-        $totalUtang = $utangTransaksi + $utangSatuan + $totalKuotaPending;
+        $totalUtang = $utangTransaksi + $utangSatuanTotal + $totalKuotaPending;
 
-        $utangRegulerQuery = Transaksi::where('status_payment', 'Pending')->orderByDesc('created_at');
-        $utangSatuanQuery = TransaksiSatuan::where('status_payment', 'Pending')->orderByDesc('created_at');
-
-        $utangReguler = $utangRegulerQuery->get();
-        $utangSatuan = $utangSatuanQuery->get();
+        $utangReguler = $applyDateFilter(Transaksi::where('status_payment', 'Pending')->orderByDesc('created_at'))->get();
+        $utangSatuan = $applyDateFilter(TransaksiSatuan::where('status_payment', 'Pending')->orderByDesc('created_at'))->get();
         $kuotaPending = $kuotaList->filter(function ($item) {
             return Str::contains(strtolower($item->keterangan ?? ''), 'nyusul');
         });
@@ -270,6 +271,9 @@ class SuperAdminController extends Controller
             'targetTahun',
             'totalTransaksi',
             'totalSatuan',
+            'totalPekerjaanSelesai',
+            'totalUangMuka',
+            'totalPiutangSelesai',
             'totalKuotaLunas',
             'totalPemasukanManual',
             'totalPemasukanBersih',

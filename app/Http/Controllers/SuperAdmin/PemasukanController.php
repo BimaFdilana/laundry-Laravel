@@ -207,8 +207,7 @@ class PemasukanController extends Controller
             return Str::contains(strtolower($item->keterangan ?? ''), 'nyusul');
         })->sum('total');
 
-        // Jika ada data tambahan dari purchaseKuotaList (yang semua dianggap lunas):
-        $totalKuotaLunas += $purchaseKuotaList->sum('package_price');
+        // Pembelian paket sudah tercatat di pemasukans saat dikonfirmasi; jangan hitung dua kali.
 
         // Total Transaksi & Utang (FILTERED)
         $totalTransaksi = $regulerQuery->clone()->where('status_payment', 'Success')->sum('harga_akhir');

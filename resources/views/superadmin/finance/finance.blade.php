@@ -115,11 +115,29 @@
                         <li class="list-group-item">
                             <div class="row">
                                 <div class="col-6">
-                                    <span><b>Total Pemasukan</b></span>
+                                    <span><b>Total Kas Masuk (Lunas)</b></span>
                                 </div>
                                 <div class="col-6">
                                     <span><b>{{ Rupiah::getRupiah($totalPemasukanBersih) }}</b></span>
                                 </div>
+                            </div>
+                        </li>
+                        <li class="list-group-item">
+                            <div class="row">
+                                <div class="col-6"><span>Nilai Pekerjaan Selesai</span></div>
+                                <div class="col-6"><span>{{ Rupiah::getRupiah($totalPekerjaanSelesai) }}</span></div>
+                            </div>
+                        </li>
+                        <li class="list-group-item">
+                            <div class="row">
+                                <div class="col-6"><span>Uang Muka (Lunas, Belum Selesai)</span></div>
+                                <div class="col-6"><span>{{ Rupiah::getRupiah($totalUangMuka) }}</span></div>
+                            </div>
+                        </li>
+                        <li class="list-group-item">
+                            <div class="row">
+                                <div class="col-6"><span>Piutang Pekerjaan Selesai</span></div>
+                                <div class="col-6"><span>{{ Rupiah::getRupiah($totalPiutangSelesai) }}</span></div>
                             </div>
                         </li>
                         <li class="list-group-item">
