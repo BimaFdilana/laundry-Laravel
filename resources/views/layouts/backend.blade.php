@@ -359,10 +359,14 @@
                         <a href="{{ route('laporan.harian') }}"><i class="feather icon-file-text"></i><span
                                 class="menu-title" data-i18n="Dashboard">Laporan</span></a>
                     </li>
-
                     <li class="nav-item {{ request()->routeIs('laporan.perbandingan') ? 'active' : '' }}">
                         <a href="{{ route('laporan.perbandingan') }}"><i class="feather icon-bar-chart-2"></i><span
                                 class="menu-title" data-i18n="Dashboard">Perbandingan</span></a>
+                    </li>
+
+                    <li class="nav-item {{ request()->routeIs('superadmin.update-terbaru') ? 'active' : '' }}">
+                        <a href="{{ route('superadmin.update-terbaru') }}"><i class="feather icon-bell"></i><span
+                                class="menu-title" data-i18n="Dashboard">Update Terbaru</span></a>
                     </li>
                 @elseif(auth::user()->auth == 'Customer')
                     <li class="nav-item {{ request()->is('paket-customer') ? 'active' : '' }}">

@@ -67,7 +67,10 @@ class HomeController extends Controller
                 // Total Piutang (belum lunas)
                 $totalPiutang = Transaksi::where('status_payment', 'Pending')->sum('harga_akhir')
                     + TransaksiSatuan::where('status_payment', 'Pending')->sum('harga_akhir')
-                    + Pemasukan::where('keterangan', 'LIKE', '%nyusul%')->sum('total');
+                    + Pemasukan::where(function ($q) {
+                        $q->where('kategori', 'LIKE', '%kuota%')
+                            ->orWhere('kategori', 'LIKE', '%paket%');
+                    })->where('keterangan', 'LIKE', '%nyusul%')->sum('total');
                 $data = DB::table("transaksis")
                     ->select("id", DB::raw("(COUNT(*)) as customer"))
                     ->orderBy('created_at')
@@ -328,7 +331,10 @@ class HomeController extends Controller
                 // Total Piutang (belum lunas)
                 $totalPiutang = Transaksi::where('status_payment', 'Pending')->sum('harga_akhir')
                     + TransaksiSatuan::where('status_payment', 'Pending')->sum('harga_akhir')
-                    + Pemasukan::where('keterangan', 'LIKE', '%nyusul%')->sum('total');
+                    + Pemasukan::where(function ($q) {
+                        $q->where('kategori', 'LIKE', '%kuota%')
+                            ->orWhere('kategori', 'LIKE', '%paket%');
+                    })->where('keterangan', 'LIKE', '%nyusul%')->sum('total');
 
                 // Jumlah Transaksi
                 $transaksiReguler = Transaksi::count();
