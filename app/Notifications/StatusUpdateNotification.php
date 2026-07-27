@@ -48,14 +48,14 @@ class StatusUpdateNotification extends Notification
                 $message .= "\n\nDetail transaksi bisa dilihat di link berikut:\n" . $this->url;
             }
 
-            // Ambil semua kuota laundry user
-            $kuotaItems = $notifiable->kuotaLaundry;
+            // Ambil semua kuota laundry user langsung dari database (menghindari cache in-memory)
+            $kuotaItems = $notifiable->kuotaLaundry()->get();
 
             if ($kuotaItems->count() > 0) {
                 $message .= "\n\nSisa kuota laundry Anda saat ini:";
 
                 foreach ($kuotaItems as $item) {
-                    $message .= "\n- " . ucfirst($item->kategori) . ": *" . $item->kuota . "*";
+                    $message .= "\n- " . ucfirst($item->kategori) . ": *" . (float)$item->kuota . " kg*";
                 }
             }
 

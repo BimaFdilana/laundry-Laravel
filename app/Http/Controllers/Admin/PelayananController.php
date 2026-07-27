@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\{Harga, Karyawan, Transaksi, User};
+use App\Models\{Harga, Karyawan, Transaksi, User, Diskon};
 use Illuminate\Support\Facades\Session;
 use App\Notifications\{StatusUpdateNotification};
 use Carbon\Carbon;
@@ -13,10 +13,25 @@ use Illuminate\Support\Facades\Auth;
 class PelayananController extends Controller
 
 {
-    public function index()
+    public function index(Request $request)
     {
-        // Ambil data transaksi
-        $order = Transaksi::with(['price', 'karyawan'])->orderBy('id', 'DESC')->get();
+        $query = Transaksi::with(['price', 'karyawan'])->orderBy('id', 'DESC');
+
+        if ($request->filled('dari') && $request->filled('sampai')) {
+            $query->whereDate('created_at', '>=', $request->dari)
+                  ->whereDate('created_at', '<=', $request->sampai);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('invoice', 'LIKE', "%{$search}%")
+                  ->orWhere('customer', 'LIKE', "%{$search}%");
+            });
+        }
+
+        // Ambil data transaksi dengan pagination 10
+        $order = $query->paginate(10)->appends($request->query());
 
         // Ambil semua karyawan
         $karyawans = Karyawan::all();
@@ -61,8 +76,10 @@ class PelayananController extends Controller
         $cek_harga = Harga::where('status', 1)->first();
         $harga_value = $cek_harga ? $cek_harga->harga : 0;
 
-        $customers = User::where('auth', 'Customer')->orderBy('name', 'asc')->get();
+        $customers = User::with('kuotaLaundry')->where('auth', 'Customer')->orderBy('name', 'asc')->get();
         $karyawans = Karyawan::orderBy('name', 'asc')->get();
+
+        $diskons = Diskon::where('status', 1)->get();
 
         return view('modul_admin.transaksi.addorder', compact(
             'currentUser',
@@ -71,7 +88,8 @@ class PelayananController extends Controller
             'harga',
             'harga_value',
             'customers',
-            'karyawans'
+            'karyawans',
+            'diskons'
         ));
     }
 
@@ -79,7 +97,8 @@ class PelayananController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'tgl_transaksi' => 'required',
+            'invoice'           => 'required|unique:transaksis,invoice',
+            'tgl_transaksi'     => 'required',
             'kg'                => 'required|regex:/^[0-9.]+$/',
             'hari'              => 'required',
             'harga_id'          => 'required|exists:hargas,id',
@@ -87,7 +106,7 @@ class PelayananController extends Controller
             'customer_id'       => 'required|exists:users,id',
             'karyawan_id'       => 'required|exists:karyawans,id',
             'catatan_admin'     => 'nullable|string|max:255',
-            'jenis_pewangi'       => 'required|string',
+            'jenis_pewangi'     => 'required|string',
             'jumlah_lembar_baju' => 'nullable|integer|min:0',
             'status_bayar'      => 'nullable|in:lunas,belum_bayar',
         ]);
@@ -143,6 +162,16 @@ class PelayananController extends Controller
                 $kuota->kuota = 0;
                 $kuota->save();
             }
+
+            // Catat log penggunaan kuota
+            \App\Models\KuotaLaundryLog::create([
+                'user_id' => $customer->id,
+                'tipe' => 'penggunaan',
+                'jumlah' => $ditanggung_kuota,
+                'kategori' => $kategori,
+                'invoice' => $order->invoice,
+                'keterangan' => 'Penggunaan kuota untuk transaksi ' . $order->invoice . '.',
+            ]);
         }
 
         $total_harga = $berat * $hargaObj->harga;
@@ -213,40 +242,45 @@ class PelayananController extends Controller
                 $estimasi = $dataInvoice->hari;
             }
 
-            $message = "🧾 *LAUNDRY CAMP*\n"
-                . "Jl. Bantan, Gg. Cahaya, Senggoro\n"
-                . "Telp/WA: 082284392025\n"
-                . "==============================\n"
-                . "*ORDER BERHASIL DIBUAT!*\n"
-                . "*Status Pembayaran:* {$dataInvoice->status_payment}\n"
-                . "==============================\n"
-                . "*LAYANAN:* " . ($dataInvoice->price?->nama ?? '-') . " - " . ($dataInvoice->price?->jenis ?? '-') . "\n"
-                . "*Karyawan:* " . ($dataInvoice->karyawan?->name ?? '-') . "\n"
-                . "==============================\n"
-                . "*Invoice:* {$dataInvoice->invoice}\n"
-                . "*Tanggal:* " . \Carbon\Carbon::parse($dataInvoice->tgl_transaksi)->format('d/m/Y') . "\n"
-                . "*Customer:* " . ($dataInvoice->customers?->name ?? '-') . "\n"
-                . "*Berat:* {$berat} kg\n"
-                . "*Lembar Pakaian:* " . ($dataInvoice->jumlah_lembar_baju ?? '-') . " pcs\n"
-                . "*Pewangi:* {$dataInvoice->jenis_pewangi}\n"
-                . "*Total:* Rp " . number_format($total_harga, 0, ',', '.') . "\n"
-                . "*Diskon:* Rp " . number_format($dataInvoice->disc ?? 0, 0, ',', '.') . "\n"
-                . "*Harga Akhir:* Rp " . number_format($dataInvoice->harga_akhir ?? 0, 0, ',', '.') . "\n"
-                . "*Pembayaran:* " . ($dataInvoice->jenis_pembayaran ?? '-') . " (" . ($dataInvoice->info_pembayaran ?? '-') . ")\n"
-                . "*Catatan:* " . ($dataInvoice->catatan_admin ?? '-') . "\n"
-                . "==============================\n"
-                . "Segera Hubungi dan Konfirmasi ke admin jika:\n"
-                . "1. Ada perbedaan jumlah pakaian hasil hitungan petugas laundry kami\n"
-                . "2. Ada pakaian luntur yang harus dipisahkan\n"
-                . "3. Ada kondisi pakaian terdapat noda dan rusak\n"
-                . "4. Terdapat benda berharga/uang yang tertinggal didalam pakaian\n"
-                . "==============================\n"
-                . "Terima kasih! Order Anda sedang kami proses.\n"
-                . "Estimasi selesai: " . $estimasi;
+            $message = "✨ *LAUNDRY CAMP* ✨\n"
+                . "📍 _Jl. Bantan, Gg. Cahaya, Senggoro_\n"
+                . "📞 _Hubungi: 082284392025_\n"
+                . "━━━━━━━━━━━━━━━━━━━━━━\n"
+                . "🎉 *ORDER BERHASIL DIBUAT!* 🎉\n"
+                . "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                . "📌 *INFORMASI INVOICE*\n"
+                . "• *No. Invoice* : `{$dataInvoice->invoice}`\n"
+                . "• *Tanggal* : " . Carbon::parse($dataInvoice->tgl_transaksi)->format('d/m/Y') . "\n"
+                . "• *Nama Pelanggan* : " . ($dataInvoice->customers?->name ?? '-') . "\n"
+                . "• *Status Pembayaran* : *{$dataInvoice->status_payment}*\n\n"
+                . "🧺 *DETAIL LAYANAN*\n"
+                . "• *Layanan* : " . ($dataInvoice->price?->nama ?? '-') . " - " . ($dataInvoice->price?->jenis ?? '-') . "\n"
+                . "• *Petugas* : " . ($dataInvoice->karyawan?->name ?? '-') . "\n"
+                . "• *Pewangi* : {$dataInvoice->jenis_pewangi}\n\n"
+                . "📊 *RINCIAN PAKAIAN*\n"
+                . "• *Berat* : {$berat} kg\n"
+                . "• *Jumlah* : " . ($dataInvoice->jumlah_lembar_baju ?? '-') . " pcs\n"
+                . "• *Catatan* : " . ($dataInvoice->catatan_admin ?? '-') . "\n\n"
+                . "💰 *RINCIAN BIAYA*\n"
+                . "• *Subtotal* : Rp " . number_format($total_harga, 0, ',', '.') . "\n"
+                . "• *Diskon* : - Rp " . number_format($dataInvoice->disc ?? 0, 0, ',', '.') . "\n"
+                . "• *Harga Akhir* : *Rp " . number_format($dataInvoice->harga_akhir ?? 0, 0, ',', '.') . "*\n"
+                . "• *Pembayaran* : " . ($dataInvoice->jenis_pembayaran ?? '-') . " (" . ($dataInvoice->info_pembayaran ?? '-') . ")\n\n"
+                . "⏱️ *ESTIMASI SELESAI*\n"
+                . "📅 *{$estimasi}*\n\n"
+                . "━━━━━━━━━━━━━━━━━━━━━━\n"
+                . "⚠️ *INFORMASI PENTING (BACA)* ⚠️\n"
+                . "Harap konfirmasi ke Admin segera jika:\n"
+                . "1. Jumlah pakaian berbeda dengan hitungan.\n"
+                . "2. Ada pakaian luntur yang wajib dipisah.\n"
+                . "3. Ada pakaian bernoda berat atau rusak.\n"
+                . "4. Ada uang/benda berharga tertinggal.\n"
+                . "━━━━━━━━━━━━━━━━━━━━━━\n"
+                . "_Terima kasih! Order Anda sedang kami proses._";
 
             $url = route('customer.invoice', $dataInvoice->invoice);
 
-            $customer->notify(new \App\Notifications\StatusUpdateNotification($message, $url));
+            $customer->notify(new StatusUpdateNotification($message, $url));
         }
 
         // Flash message
@@ -315,7 +349,7 @@ class PelayananController extends Controller
                     . "*Karyawan:* " . ($dataInvoice->karyawan?->name ?? '-') . "\n"
                     . "==============================\n"
                     . "*Invoice:* {$dataInvoice->invoice}\n"
-                    . "*Tanggal:* " . \Carbon\Carbon::parse($dataInvoice->tgl_transaksi)->format('d/m/Y') . "\n"
+                    . "*Tanggal:* " . Carbon::parse($dataInvoice->tgl_transaksi)->format('d/m/Y') . "\n"
                     . "*Customer:* " . ($dataInvoice->customers?->name ?? '-') . "\n"
                     . "*Berat:* {$berat} kg\n"
                     . "*Lembar Pakaian:* " . ($dataInvoice->jumlah_lembar_baju ?? '-') . " pcs\n"
@@ -332,7 +366,7 @@ class PelayananController extends Controller
                     . "==============================\n"
                     . "Terima kasih!\n"
                     . "Laundry telah selesai ~ " . ($dataInvoice->ket_delivery ?? '-') . "\n"
-                    . "Tanggal diambil/diantar: " . \Carbon\Carbon::parse($dataInvoice->tgl_ambil)->format('d/m/Y H:i');
+                    . "Tanggal diambil/diantar: " . Carbon::parse($dataInvoice->tgl_ambil)->format('d/m/Y H:i');
 
                 $url = route('customer.invoice', $dataInvoice->invoice);
 

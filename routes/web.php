@@ -50,6 +50,8 @@ Route::get('/transaksi-satuan-customer/invoice/{invoice}', [InvoiceController::c
 
 Route::middleware('auth')->group(function () {
     Route::get('/home', 'HomeController@index')->name('home');
+    Route::get('/dashboard/data', 'HomeController@getDashboardData')->name('dashboard.data');
+    Route::get('panduan-fitur', 'HomeController@panduanFitur')->name('panduan.fitur');
 
     // Modul Super Admin
     Route::prefix('/')->middleware('role:SuperAdmin')->group(function () {
@@ -58,6 +60,10 @@ Route::middleware('auth')->group(function () {
         Route::put('superadmin/set-theme/{id}', 'SuperAdmin\SettingsController@set_theme')->name('superadmin-setting-theme.update');
         Route::put('set-target-laundry/{id}', 'SuperAdmin\SettingsController@set_target_laundry')->name('set-target.update');
         Route::put('set-target-finance/{id}', 'SuperAdmin\SettingsController@update_target_finance')->name('set-target-finance.update');
+        Route::get('target-finance', 'SuperAdmin\TargetFinanceController@index')->name('superadmin.target-finance.index');
+        Route::put('target-finance-update/{id}', 'SuperAdmin\TargetFinanceController@update')->name('superadmin.target-finance.update');
+        Route::get('target-laundry', 'SuperAdmin\TargetLaundryController@index')->name('superadmin.target-laundry.index');
+        Route::put('target-laundry-update/{id}', 'SuperAdmin\TargetLaundryController@update')->name('superadmin.target-laundry.update');
 
         // Route untuk ganti password
         Route::post('profile-superadmin-change-password', [SuperAdminController::class, 'changePassword'])->name('profile.superadmin.changePassword');
@@ -118,6 +124,9 @@ Route::middleware('auth')->group(function () {
         Route::put('/superadmin/paket/{id}', [PaketController::class, 'update'])->name('paket.update');
         Route::delete('/superadmin/paket/{id}', [PaketController::class, 'destroy'])->name('paket.destroy');
 
+        // Diskon
+        Route::resource('diskon', 'SuperAdmin\DiskonController');
+
         // Inventaris
         Route::resource('kategori', 'SuperAdmin\KategoriController');
         Route::get('inventaris', [InventarisController::class, 'index'])->name('inventaris.index');
@@ -146,6 +155,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/admin/piutang', [AdminPiutangController::class, 'index'])->name('admin.piutang.index');
         Route::post('/admin/piutang/{tipe}/{id}/bayar', [AdminPiutangController::class, 'bayar'])->name('admin.piutang.bayar');
 
+        // Aktivitas Karyawan
+        Route::get('/admin/aktivitas-karyawan', [AktivitasKaryawanController::class, 'index'])->name('admin.aktivitas-karyawan.index');
+        Route::post('/admin/aktivitas-karyawan', [AktivitasKaryawanController::class, 'store'])->name('admin.aktivitas-karyawan.store');
+        Route::post('/admin/aktivitas-karyawan/{id}/selesai', [AktivitasKaryawanController::class, 'selesai'])->name('admin.aktivitas-karyawan.selesai');
+        Route::delete('/admin/aktivitas-karyawan/{id}', [AktivitasKaryawanController::class, 'destroy'])->name('admin.aktivitas-karyawan.destroy');
+        Route::get('/admin/aktivitas-karyawan/by-transaksi', [AktivitasKaryawanController::class, 'getByTransaksi'])->name('admin.aktivitas-karyawan.by-transaksi');
+
         Route::resource('admin', 'Admin\AdminController')->except(['show']);
 
         // Route untuk ganti password
@@ -155,7 +171,8 @@ Route::middleware('auth')->group(function () {
         Route::resource('customer', 'Admin\CustomerController');
 
         // Kuota Customer
-        Route::resource('kuota', 'Admin\KuotaController');
+        Route::get('/kuota/{id}/history', [KuotaController::class, 'history'])->name('kuota.history');
+        Route::resource('kuota', 'Admin\KuotaController')->except(['show']);
         Route::get('/kuota/create', [KuotaController::class, 'create'])->name('kuota.create');
         Route::post('/kuota', [KuotaController::class, 'store'])->name('kuota.store');
 

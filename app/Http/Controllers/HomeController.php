@@ -568,4 +568,243 @@ class HomeController extends Controller
             }
         }
     }
+
+    public function getDashboardData(Request $request)
+    {
+        $startDate = Carbon::parse($request->input('start_date', now()->startOfMonth()->toDateString()))->startOfDay();
+        $endDate = Carbon::parse($request->input('end_date', now()->endOfDay()->toDateString()))->endOfDay();
+
+        // Hitung durasi hari untuk komparasi periode sebelumnya
+        $diffInDays = $startDate->diffInDays($endDate) + 1;
+        $prevStartDate = $startDate->copy()->subDays($diffInDays)->startOfDay();
+        $prevEndDate = $startDate->copy()->subDays(1)->endOfDay();
+
+        // 1. PENDAPATAN TERPILIH VS SEBELUMNYA
+        $revenue = $this->calculateRevenue($startDate, $endDate);
+        $prevRevenue = $this->calculateRevenue($prevStartDate, $prevEndDate);
+        $revenueChange = $this->calculatePercentageChange($revenue['total'], $prevRevenue['total']);
+
+        // 2. BERAT TERPILIH VS SEBELUMNYA (KG)
+        $weight = $this->calculateWeight($startDate, $endDate);
+        $prevWeight = $this->calculateWeight($prevStartDate, $prevEndDate);
+        $weightChange = $this->calculatePercentageChange($weight, $prevWeight);
+
+        // 3. ORDER AKTIF & SELESAI
+        $activeOrders = Transaksi::whereIn('status_order', ['Antrian', 'Process'])->whereBetween('created_at', [$startDate, $endDate])->count()
+            + TransaksiSatuan::whereIn('status_order', ['Antrian', 'Process'])->whereBetween('created_at', [$startDate, $endDate])->count();
+        
+        $completedOrders = Transaksi::whereIn('status_order', ['Done', 'Delivery'])->whereBetween('created_at', [$startDate, $endDate])->count()
+            + TransaksiSatuan::whereIn('status_order', ['Done', 'Delivery'])->whereBetween('created_at', [$startDate, $endDate])->count();
+
+        // 4. TOTAL PIUTANG (Belum Lunas - Absolut status saat ini)
+        $totalPiutang = Transaksi::where('status_payment', 'Pending')->sum('harga_akhir')
+            + TransaksiSatuan::where('status_payment', 'Pending')->sum('harga_akhir')
+            + Pemasukan::where('keterangan', 'LIKE', '%nyusul%')->sum('total');
+
+        // 5. CHART DATA (Pendapatan Harian)
+        $chartData = $this->getChartData($startDate, $endDate);
+
+        // 6. LIVE FEEDS (5 Order Terbaru & 5 Pengeluaran Terbaru)
+        $recentOrders = $this->getRecentOrders();
+        $recentExpenses = $this->getRecentExpenses();
+
+        // 7. TARGET DYNAMIC (LAUNDRY & KEUANGAN)
+        $targetPeriod = $request->input('target_period', 'this_month');
+        $settingLaundry = LaundrySetting::first();
+        $settingFinance = TargetFinance::first();
+
+        $targetLaundryKg = 0;
+        $targetFinanceRp = 0;
+
+        if ($targetPeriod === 'this_week') {
+            $targetStart = now()->startOfWeek();
+            $targetEnd = now()->endOfWeek();
+            $targetLaundryKg = $settingLaundry ? ($settingLaundry->target_day * 7) : 0;
+            $targetFinanceRp = $settingFinance ? ($settingFinance->target_hari * 7) : 0;
+        } elseif ($targetPeriod === 'this_year') {
+            $targetStart = now()->startOfYear();
+            $targetEnd = now()->endOfYear();
+            $targetLaundryKg = $settingLaundry ? $settingLaundry->target_year : 0;
+            $targetFinanceRp = $settingFinance ? $settingFinance->target_tahun : 0;
+        } else { // default 'this_month'
+            $targetStart = now()->startOfMonth();
+            $targetEnd = now()->endOfMonth();
+            $targetLaundryKg = $settingLaundry ? $settingLaundry->target_month : 0;
+            $targetFinanceRp = $settingFinance ? $settingFinance->target_bulan : 0;
+        }
+
+        $achievedLaundryKg = $this->calculateWeight($targetStart, $targetEnd);
+        $achievedFinanceRp = $this->calculateRevenue($targetStart, $targetEnd)['total'];
+
+        $percentLaundry = $targetLaundryKg > 0 ? round(($achievedLaundryKg / $targetLaundryKg) * 100, 1) : 0;
+        $percentFinance = $targetFinanceRp > 0 ? round(($achievedFinanceRp / $targetFinanceRp) * 100, 1) : 0;
+
+        return response()->json([
+            'revenue' => 'Rp ' . number_format($revenue['total'], 0, ',', '.'),
+            'revenue_raw' => $revenue['total'],
+            'revenue_change' => $revenueChange,
+            'weight' => number_format($weight, 1, ',', '.') . ' kg',
+            'weight_raw' => $weight,
+            'weight_change' => $weightChange,
+            'active_orders' => $activeOrders,
+            'completed_orders' => $completedOrders,
+            'total_piutang' => 'Rp ' . number_format($totalPiutang, 0, ',', '.'),
+            'target_laundry_kg' => number_format($targetLaundryKg, 1, ',', '.') . ' kg',
+            'achieved_laundry_kg' => number_format($achievedLaundryKg, 1, ',', '.') . ' kg',
+            'percent_laundry' => $percentLaundry,
+            'target_finance_rp' => 'Rp ' . number_format($targetFinanceRp, 0, ',', '.'),
+            'achieved_finance_rp' => 'Rp ' . number_format($achievedFinanceRp, 0, ',', '.'),
+            'percent_finance' => $percentFinance,
+            'chart' => $chartData,
+            'recent_orders' => $recentOrders,
+            'recent_expenses' => $recentExpenses,
+        ]);
+    }
+
+    private function calculateRevenue($start, $end)
+    {
+        $reguler = Transaksi::where('status_payment', 'Success')->whereBetween('created_at', [$start, $end])->sum('harga_akhir');
+        $satuan = TransaksiSatuan::where('status_payment', 'Success')->whereBetween('created_at', [$start, $end])->sum('harga_akhir');
+        
+        $kuotaManual = Pemasukan::where('kategori', 'LIKE', 'Kuota%')
+            ->where(function ($q) {
+                $q->whereNull('keterangan')->orWhere('keterangan', 'not like', '%nyusul%');
+            })->whereBetween('created_at', [$start, $end])->sum('total');
+            
+        $kuotaPR = PurchaseRequest::where('status', 'confirmed')->whereBetween('created_at', [$start, $end])->sum('package_price');
+        
+        $lain = Pemasukan::where('kategori', 'NOT LIKE', 'Kuota%')->whereBetween('created_at', [$start, $end])->sum('total');
+
+        $total = $reguler + $satuan + $kuotaManual + $kuotaPR + $lain;
+
+        return [
+            'total' => $total,
+            'reguler' => $reguler,
+            'satuan' => $satuan,
+            'kuota' => $kuotaManual + $kuotaPR,
+            'lain' => $lain
+        ];
+    }
+
+    private function calculateWeight($start, $end)
+    {
+        return Transaksi::whereIn('status_order', ['Antrian', 'Process', 'Done', 'Delivery'])
+            ->whereBetween('created_at', [$start, $end])
+            ->sum('kg');
+    }
+
+    private function calculatePercentageChange($current, $previous)
+    {
+        if ($previous == 0) {
+            return $current > 0 ? 100 : 0;
+        }
+        return round((($current - $previous) / $previous) * 100, 1);
+    }
+
+    private function calculateMonthlyRevenue($start, $end)
+    {
+        $reguler = Transaksi::where('status_payment', 'Success')->whereBetween('created_at', [$start, $end])->sum('harga_akhir');
+        $satuan = TransaksiSatuan::where('status_payment', 'Success')->whereBetween('created_at', [$start, $end])->sum('harga_akhir');
+        return $reguler + $satuan;
+    }
+
+    private function getChartData($start, $end)
+    {
+        $labels = [];
+        $regulerData = [];
+        $satuanData = [];
+        $kuotaData = [];
+
+        $current = $start->copy();
+        while ($current <= $end) {
+            $labels[] = $current->format('d M');
+            $dayStart = $current->copy()->startOfDay();
+            $dayEnd = $current->copy()->endOfDay();
+
+            $rev = $this->calculateRevenue($dayStart, $dayEnd);
+            $regulerData[] = $rev['reguler'];
+            $satuanData[] = $rev['satuan'];
+            $kuotaData[] = $rev['kuota'];
+
+            $current->addDay();
+        }
+
+        $totalRev = $this->calculateRevenue($start, $end);
+
+        return [
+            'labels' => $labels,
+            'series' => [
+                [
+                    'name' => 'Kiloan',
+                    'data' => $regulerData
+                ],
+                [
+                    'name' => 'Satuan',
+                    'data' => $satuanData
+                ],
+                [
+                    'name' => 'Penjualan Kuota',
+                    'data' => $kuotaData
+                ]
+            ],
+            'distribution' => [
+                (float)$totalRev['reguler'],
+                (float)$totalRev['satuan'],
+                (float)$totalRev['kuota']
+            ]
+        ];
+    }
+
+    private function getRecentOrders()
+    {
+        $reg = Transaksi::orderByDesc('created_at')->limit(5)->get()->map(function ($item) {
+            return [
+                'invoice' => $item->invoice,
+                'customer' => $item->customer,
+                'layanan' => ($item->price?->nama ?? '-') . ' - ' . ($item->price?->jenis ?? '-'),
+                'total' => 'Rp ' . number_format($item->harga_akhir, 0, ',', '.'),
+                'status_order' => $item->status_order,
+                'status_payment' => $item->status_payment,
+                'type' => 'kiloan',
+                'url' => route('customer.invoice', $item->invoice)
+            ];
+        });
+
+        $sat = TransaksiSatuan::orderByDesc('created_at')->limit(5)->get()->map(function ($item) {
+            return [
+                'invoice' => $item->invoice,
+                'customer' => $item->customer,
+                'layanan' => 'Layanan Satuan',
+                'total' => 'Rp ' . number_format($item->harga_akhir, 0, ',', '.'),
+                'status_order' => $item->status_order,
+                'status_payment' => $item->status_payment,
+                'type' => 'satuan',
+                'url' => route('customer.invoicesatuan', $item->invoice)
+            ];
+        });
+
+        return $reg->concat($sat)->sortByDesc(function ($item) {
+            return $item['invoice'];
+        })->take(5)->values()->all();
+    }
+
+    private function getRecentExpenses()
+    {
+        return \App\Models\Pengeluaran::orderByDesc('created_at')
+            ->limit(5)
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'pengeluaran' => $item->pengeluaran,
+                    'kategori' => $item->kategori ?? '-',
+                    'total' => 'Rp ' . number_format($item->total, 0, ',', '.'),
+                    'tanggal' => Carbon::parse($item->created_at)->translatedFormat('d M Y')
+                ];
+            });
+    }
+
+    public function panduanFitur()
+    {
+        return view('panduan.index');
+    }
 }

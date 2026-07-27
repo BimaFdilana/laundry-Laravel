@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\KuotaLaundry;
+use App\Models\KuotaLaundryLog;
 use App\Models\Paket;
 use App\Models\Pemasukan;
 use App\Models\User;
+use App\Models\Diskon;
+use Carbon\Carbon;
 
 class KuotaController extends Controller
 {
@@ -36,7 +39,8 @@ class KuotaController extends Controller
     {
         $customers = User::where('auth', 'Customer')->get();
         $pakets = Paket::all();
-        return view('modul_admin.customer.create_kuota', compact('customers', 'pakets'));
+        $diskons = Diskon::where('status', 1)->get();
+        return view('modul_admin.customer.create_kuota', compact('customers', 'pakets', 'diskons'));
     }
 
     public function store(Request $request)
@@ -64,6 +68,15 @@ class KuotaController extends Controller
                 'kategori' => $request->kategori,
             ]);
         }
+
+        // Catat log penambahan kuota
+        KuotaLaundryLog::create([
+            'user_id' => $request->user_id,
+            'tipe' => 'penambahan',
+            'jumlah' => $request->kuota,
+            'kategori' => $request->kategori,
+            'keterangan' => 'Pembelian/penambahan kuota baru. ' . $request->keterangan,
+        ]);
 
         $user = User::find($request->user_id);
 
@@ -95,10 +108,42 @@ class KuotaController extends Controller
         ]);
 
         $kuota = KuotaLaundry::findOrFail($id);
+        $selisih = $request->kuota - $kuota->kuota;
+
+        if ($selisih != 0) {
+            KuotaLaundryLog::create([
+                'user_id' => $kuota->user_id,
+                'tipe' => $selisih > 0 ? 'penambahan' : 'penggunaan',
+                'jumlah' => abs($selisih),
+                'kategori' => $request->kategori,
+                'keterangan' => 'Pembaruan kuota manual oleh Admin.',
+            ]);
+        }
+
         $kuota->kuota = $request->kuota;
         $kuota->kategori = $request->kategori;
         $kuota->save();
 
         return redirect('kuota')->with('success', 'Kuota dan kategori berhasil diperbarui.');
+    }
+
+    public function history($userId)
+    {
+        $logs = KuotaLaundryLog::where('user_id', $userId)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($log) {
+                return [
+                    'tipe' => ucfirst($log->tipe),
+                    'jumlah' => (float)$log->jumlah . ' kg',
+                    'kategori' => $log->kategori,
+                    'invoice' => $log->invoice,
+                    'invoice_url' => $log->invoice ? route('customer.invoice', $log->invoice) : null,
+                    'keterangan' => $log->keterangan,
+                    'waktu' => Carbon::parse($log->created_at)->translatedFormat('l, d F Y H:i')
+                ];
+            });
+
+        return response()->json($logs);
     }
 }

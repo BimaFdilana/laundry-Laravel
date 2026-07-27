@@ -63,9 +63,10 @@
                                     <div class="form-group">
                                         <label for="kuota">Jumlah Kuota</label>
                                         <div class="position-relative">
-                                            <input type="text" name="kuota" id="kuota"
-                                                class="form-control @error('kuota') is-invalid @enderror"
-                                                value="{{ old('kuota') }}" min="0" required>
+                                            <select name="kuota" id="kuota"
+                                                class="form-control @error('kuota') is-invalid @enderror" required>
+                                                <option value="">-- Pilih Jumlah Kuota --</option>
+                                            </select>
                                             @error('kuota')
                                                 <span class="invalid-feedback" role="alert">
                                                     <strong>{{ $message }}</strong>
@@ -87,6 +88,20 @@
                                                     <strong>{{ $message }}</strong>
                                                 </span>
                                             @enderror
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-6 col-xl-6 col-12">
+                                    <div class="form-group">
+                                        <label for="voucher_select">Pilih Voucher Diskon</label>
+                                        <div class="position-relative">
+                                            <select id="voucher_select" class="form-control">
+                                                <option value="0" data-nominal="0">-- Tanpa Voucher --</option>
+                                                @foreach($diskons as $diskon)
+                                                    <option value="{{ $diskon->id }}" data-nominal="{{ (int)$diskon->nominal }}">{{ $diskon->kode }} - (Rp. {{ number_format($diskon->nominal, 0, ',', '.') }})</option>
+                                                @endforeach
+                                            </select>
                                         </div>
                                     </div>
                                 </div>
@@ -134,4 +149,59 @@
             </div>
         </div>
     </div>
+@endsection
+
+@section('scripts')
+    <script type="text/javascript">
+        $(document).ready(function() {
+            const pakets = @json($pakets);
+            const oldKategori = "{{ old('kategori') }}";
+            const oldKuota = "{{ old('kuota') }}";
+
+            function populateKuota(kategoriVal, selectedKuotaVal) {
+                const kuotaSelect = $('#kuota');
+                kuotaSelect.html('<option value="">-- Pilih Jumlah Kuota --</option>');
+
+                if (kategoriVal) {
+                    const filtered = pakets.filter(p => p.kategori === kategoriVal);
+                    filtered.forEach(p => {
+                        const isSelected = selectedKuotaVal == p.kg ? 'selected' : '';
+                        kuotaSelect.append(`<option value="${p.kg}" data-harga="${p.harga}" ${isSelected}>${parseFloat(p.kg)} kg</option>`);
+                    });
+                }
+            }
+
+            $('#kategori').on('change', function() {
+                const kategoriVal = $(this).val();
+                populateKuota(kategoriVal, '');
+                $('#harga').val('');
+            });
+
+            $('#kuota').on('change', function() {
+                const selectedOpt = $(this).find('option:selected');
+                const harga = selectedOpt.data('harga');
+                if (harga !== undefined && $(this).val() !== '') {
+                    $('#harga').val(Math.round(harga));
+                } else {
+                    $('#harga').val('');
+                }
+            });
+
+            // Handle old values if validation failed
+            if (oldKategori) {
+                populateKuota(oldKategori, oldKuota);
+                if (oldKuota) {
+                    const matchedPaket = pakets.find(p => p.kategori === oldKategori && p.kg == oldKuota);
+                    if (matchedPaket) {
+                        $('#harga').val(Math.round(matchedPaket.harga));
+                    }
+                }
+            }
+            // Voucher select handler
+            $('#voucher_select').on('change', function() {
+                const nominal = $(this).find('option:selected').data('nominal');
+                $('#diskon').val(nominal);
+            });
+        });
+    </script>
 @endsection

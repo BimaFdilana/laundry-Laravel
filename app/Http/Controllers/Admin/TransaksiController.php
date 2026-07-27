@@ -32,7 +32,7 @@ class TransaksiController extends Controller
             });
         }
 
-        $transaksiBiasa = $query->paginate(50)->appends($request->query());
+        $transaksiBiasa = $query->paginate(10)->appends($request->query());
 
         return view('modul_admin.transaksi.index', compact('transaksiBiasa'));
     }
@@ -55,7 +55,7 @@ class TransaksiController extends Controller
             });
         }
 
-        $transaksiSatuan = $query->paginate(50)->appends($request->query());
+        $transaksiSatuan = $query->paginate(10)->appends($request->query());
 
         return view('modul_admin.transaksi.index_satuan', compact('transaksiSatuan'));
     }

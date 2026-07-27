@@ -20,7 +20,7 @@
                 <h4 class="card-title">Form Tambah Data Order</h4>
             </div>
             <div class="card-body">
-                <form action="{{ route('pelayanan.store') }}" method="POST">
+                <form action="{{ route('pelayanan.store') }}" method="POST" id="form-add-order">
                     @csrf
                     <div class="form-body">
                         <div class="row p-t-20">
@@ -28,13 +28,23 @@
                             <div class="col-md-3">
                                 <div class="form-group has-success">
                                     <label class="control-label">Nama Customer</label>
-                                    <select name="customer_id"
+                                    <select name="customer_id" id="customer_id"
                                         class="form-control {{ $errors->has('customer_id') ? 'is-invalid' : '' }}" required>
                                         <option value="">-- Pilih Customer --</option>
                                         @foreach ($customers as $customer)
-                                            <option value="{{ $customer->id }}">{{ $customer->name }}</option>
+                                            @php
+                                                $quotaDetails = [];
+                                                foreach ($customer->kuotaLaundry as $q) {
+                                                    if ($q->kuota > 0) {
+                                                        $quotaDetails[] = $q->kategori . ': ' . (float)$q->kuota . ' kg';
+                                                    }
+                                                }
+                                                $quotaText = !empty($quotaDetails) ? implode(', ', $quotaDetails) : 'Tidak ada kuota';
+                                            @endphp
+                                            <option value="{{ $customer->id }}" data-quota="{{ $quotaText }}">{{ $customer->name }}</option>
                                         @endforeach
                                     </select>
+                                    <small id="customer-quota-info" class="form-text" style="display:none; font-weight:bold; color: #1e88e5 !important;"></small>
                                     @if ($errors->has('customer_id'))
                                         <span class="invalid-feedback" role="alert">
                                             <strong>{{ $errors->first('customer_id') }}</strong>
@@ -216,18 +226,30 @@
                                 <span id="select-harga"></span>
                             </div>
 
-                            <div class="col-md-3">
-                                <div class="form-group has-success">
-                                    <label class="control-label">Diskon</label>
-                                    <input type="number" name="disc" placeholder="Contoh: 40000"
-                                        class="form-control {{ $errors->has('disc') ? 'is-invalid' : '' }}" required>
-                                    @if ($errors->has('disc'))
-                                        <span class="invalid-feedback" role="alert">
-                                            <strong>{{ $errors->first('disc') }}</strong>
-                                        </span>
-                                    @endif
-                                </div>
-                            </div>
+                             <div class="col-md-3">
+                                 <div class="form-group has-success">
+                                     <label class="control-label">Pilih Voucher Diskon</label>
+                                     <select id="voucher_select" class="form-control">
+                                         <option value="0" data-nominal="0">-- Tanpa Voucher --</option>
+                                         @foreach($diskons as $diskon)
+                                             <option value="{{ $diskon->id }}" data-nominal="{{ (int)$diskon->nominal }}">{{ $diskon->kode }} - (Rp. {{ number_format($diskon->nominal, 0, ',', '.') }})</option>
+                                         @endforeach
+                                     </select>
+                                 </div>
+                             </div>
+
+                             <div class="col-md-3">
+                                 <div class="form-group has-success">
+                                     <label class="control-label">Diskon (Rp)</label>
+                                     <input type="number" name="disc" id="disc_input" placeholder="Contoh: 40000"
+                                         class="form-control {{ $errors->has('disc') ? 'is-invalid' : '' }}" value="0" required>
+                                     @if ($errors->has('disc'))
+                                         <span class="invalid-feedback" role="alert">
+                                             <strong>{{ $errors->first('disc') }}</strong>
+                                         </span>
+                                     @endif
+                                 </div>
+                             </div>
                         </div>
 
                         <div class="row p-t-20">
@@ -296,6 +318,30 @@
             if (hari !== undefined && hari !== null) {
                 $('input[name="hari"]').val(hari);
             }
+        });
+
+        // Tampilkan info kuota customer
+        $(document).on('change', '#customer_id', function() {
+            var selectedOption = $(this).find('option:selected');
+            var quota = selectedOption.data('quota');
+            if (quota && $(this).val() !== '') {
+                $('#customer-quota-info').text('Info Kuota: ' + quota).show();
+            } else {
+                $('#customer-quota-info').hide();
+            }
+        });
+
+        // Voucher select handler
+        $('#voucher_select').change(function() {
+            var nominal = $(this).find(':selected').data('nominal');
+            $('#disc_input').val(nominal);
+        });
+
+        // Cegah duplikasi submit dengan menonaktifkan tombol submit
+        $('#form-add-order').on('submit', function() {
+            var $submitBtn = $(this).find('button[type="submit"]');
+            $submitBtn.prop('disabled', true);
+            $submitBtn.html('<i class="feather icon-loader spinner-icon"></i> Memproses...');
         });
     </script>
 @endsection

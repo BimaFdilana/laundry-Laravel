@@ -31,7 +31,7 @@ class TransaksiController extends Controller
             });
         }
 
-        $order = $query->paginate(50)->appends($request->query());
+        $order = $query->paginate(10)->appends($request->query());
         $karyawans = Karyawan::all();
 
         return view('superadmin.transaksi.order', compact('order', 'karyawans'));
@@ -58,7 +58,7 @@ class TransaksiController extends Controller
             });
         }
 
-        $ordersatuan = $query->paginate(50)->appends($request->query());
+        $ordersatuan = $query->paginate(10)->appends($request->query());
         $karyawans = Karyawan::all();
 
         return view('superadmin.transaksi.ordersatuan', compact('ordersatuan', 'karyawans'));

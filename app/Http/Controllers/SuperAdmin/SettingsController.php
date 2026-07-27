@@ -12,10 +12,7 @@ class SettingsController extends Controller
 {
     public function setting()
     {
-        $settarget  = LaundrySetting::first();
-        $targetFinance = TargetFinance::first();
-
-        return view('superadmin.setting.index', compact('settarget', 'targetFinance'));
+        return view('superadmin.setting.index');
     }
 
     // Check Setting Theme

@@ -9,6 +9,7 @@ use App\Models\Transaksi;
 use App\Models\TransaksiSatuan;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class AktivitasKaryawanController extends Controller
 {
@@ -38,13 +39,16 @@ class AktivitasKaryawanController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
+        $routePrefix = Auth::user()->auth === 'SuperAdmin' ? 'superadmin' : 'admin';
+
         return view('superadmin.aktivitas-karyawan.index', compact(
             'aktivitas',
             'karyawans',
             'transaksiList',
             'satuanList',
             'karyawan_id',
-            'tanggal'
+            'tanggal',
+            'routePrefix'
         ));
     }
 
@@ -74,7 +78,8 @@ class AktivitasKaryawanController extends Controller
 
         AktivitasKaryawan::create($data);
 
-        return redirect()->route('superadmin.aktivitas-karyawan.index')->with('success', 'Aktivitas karyawan berhasil dicatat.');
+        $routePrefix = Auth::user()->auth === 'SuperAdmin' ? 'superadmin' : 'admin';
+        return redirect()->route($routePrefix . '.aktivitas-karyawan.index')->with('success', 'Aktivitas karyawan berhasil dicatat.');
     }
 
     public function selesai($id)
@@ -83,13 +88,15 @@ class AktivitasKaryawanController extends Controller
         $aktivitas->jam_selesai = Carbon::now()->toTimeString();
         $aktivitas->save();
 
-        return redirect()->route('superadmin.aktivitas-karyawan.index')->with('success', 'Aktivitas ditandai selesai.');
+        $routePrefix = Auth::user()->auth === 'SuperAdmin' ? 'superadmin' : 'admin';
+        return redirect()->route($routePrefix . '.aktivitas-karyawan.index')->with('success', 'Aktivitas ditandai selesai.');
     }
 
     public function destroy($id)
     {
         AktivitasKaryawan::findOrFail($id)->delete();
-        return redirect()->route('superadmin.aktivitas-karyawan.index')->with('success', 'Aktivitas berhasil dihapus.');
+        $routePrefix = Auth::user()->auth === 'SuperAdmin' ? 'superadmin' : 'admin';
+        return redirect()->route($routePrefix . '.aktivitas-karyawan.index')->with('success', 'Aktivitas berhasil dihapus.');
     }
 
     public function getByTransaksi(Request $request)

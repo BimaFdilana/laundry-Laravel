@@ -238,6 +238,11 @@
                         </ul>
                     </li>
 
+                    <li class="nav-item {{ request()->routeIs('admin.aktivitas-karyawan.index') ? 'active' : '' }}">
+                        <a href="{{ route('admin.aktivitas-karyawan.index') }}"><i class="feather icon-user-check"></i><span
+                                class="menu-title" data-i18n="Dashboard">Aktivitas Karyawan</span></a>
+                    </li>
+
                     <li class="nav-item {{ request()->routeIs('kuota.index', 'kuota.create') ? 'active' : '' }}"><a
                             href="{{ url('kuota') }}"><i class="feather icon-database"></i><span class="menu-title"
                                 data-i18n="Dashboard">Kuota Customer</span></a>
@@ -310,6 +315,10 @@
                                 <a href="{{ route('paket.index') }}"><i class="feather icon-circle"></i><span
                                         class="menu-item" data-i18n="List">Paket Laundry</span></a>
                             </li>
+                            <li class="nav-item {{ request()->is('diskon') ? 'active' : '' }}">
+                                <a href="{{ route('diskon.index') }}"><i class="feather icon-circle"></i><span
+                                        class="menu-item" data-i18n="List">Voucher Diskon</span></a>
+                            </li>
                         </ul>
                     </li>
 
@@ -354,6 +363,20 @@
                         </ul>
                     </li>
 
+                    <li class=" nav-item"><a href="#"><i class="feather icon-target"></i><span
+                                class="menu-title" data-i18n="Target">Target</span></a>
+                        <ul class="menu-content">
+                            <li class="nav-item {{ request()->routeIs('superadmin.target-finance.index') ? 'active' : '' }}">
+                                <a href="{{ route('superadmin.target-finance.index') }}"><i class="feather icon-circle"></i><span
+                                        class="menu-item" data-i18n="Target Keuangan">Target Keuangan</span></a>
+                            </li>
+                            <li class="nav-item {{ request()->routeIs('superadmin.target-laundry.index') ? 'active' : '' }}">
+                                <a href="{{ route('superadmin.target-laundry.index') }}"><i class="feather icon-circle"></i><span
+                                        class="menu-item" data-i18n="Target Laundry">Target Laundry</span></a>
+                            </li>
+                        </ul>
+                    </li>
+
                     <li
                         class="nav-item {{ request()->routeIs('laporan.harian', 'laporan.bulanan', 'laporan.tahunan', 'laporan.total') ? 'active' : '' }}">
                         <a href="{{ route('laporan.harian') }}"><i class="feather icon-file-text"></i><span
@@ -376,6 +399,12 @@
                     <li class="nav-item {{ request()->is('gift-customer') ? 'active' : '' }}">
                         <a href="{{ route('gift-customer.index') }}"><i class="feather icon-gift"></i><span
                                 class="menu-item" data-i18n="List">Gift</span></a>
+                    </li>
+                @endif
+                @if(in_array(auth::user()->auth, ['Admin', 'SuperAdmin']))
+                    <li class="nav-item {{ request()->routeIs('panduan.fitur') ? 'active' : '' }}">
+                        <a href="{{ route('panduan.fitur') }}"><i class="feather icon-book"></i><span
+                                class="menu-title" data-i18n="Panduan">Panduan Fitur</span></a>
                     </li>
                 @endif
                 {{-- End  --}}

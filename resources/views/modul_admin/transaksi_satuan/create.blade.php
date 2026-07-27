@@ -20,7 +20,7 @@
             <h4 class="card-title">Form Tambah Transaksi Satuan</h4>
         </div>
         <div class="card-body">
-            <form action="{{ route('transaksi-satuan.store') }}" method="POST">
+            <form action="{{ route('transaksi-satuan.store') }}" method="POST" id="form-add-order-satuan">
                 @csrf
                 <div class="form-body">
                     <div class="row">
@@ -152,12 +152,25 @@
                             @endif
                         </div>
 
+                        <!-- Voucher Select -->
+                        <div class="col-md-3">
+                            <div class="form-group has-success">
+                                <label class="control-label">Pilih Voucher Diskon</label>
+                                <select id="voucher_select" class="form-control">
+                                    <option value="0" data-nominal="0">-- Tanpa Voucher --</option>
+                                    @foreach($diskons as $diskon)
+                                        <option value="{{ $diskon->id }}" data-nominal="{{ (int)$diskon->nominal }}">{{ $diskon->kode }} - (Rp. {{ number_format($diskon->nominal, 0, ',', '.') }})</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+
                         <!-- Disc -->
                         <div class="col-md-3">
                             <div class="form-group has-success">
-                                <label class="control-label">Diskon</label>
-                                <input type="number" name="disc" placeholder="Contoh: 40000"
-                                    class="form-control {{ $errors->has('disc') ? 'is-invalid' : '' }}" required>
+                                <label class="control-label">Diskon (Rp)</label>
+                                <input type="number" name="disc" id="disc_input" placeholder="Contoh: 40000"
+                                    class="form-control {{ $errors->has('disc') ? 'is-invalid' : '' }}" value="0" required>
                                 @if ($errors->has('disc'))
                                     <span class="invalid-feedback" role="alert">
                                         <strong>{{ $errors->first('disc') }}</strong>
@@ -256,6 +269,19 @@
         // Hapus baris
         $(document).on('click', '.removeRow', function() {
             $(this).closest('tr').remove();
+        });
+
+        // Voucher select handler
+        $('#voucher_select').change(function() {
+            var nominal = $(this).find(':selected').data('nominal');
+            $('#disc_input').val(nominal);
+        });
+
+        // Cegah duplikasi submit dengan menonaktifkan tombol submit
+        $('#form-add-order-satuan').on('submit', function() {
+            var $submitBtn = $(this).find('button[type="submit"]');
+            $submitBtn.prop('disabled', true);
+            $submitBtn.html('<i class="feather icon-loader spinner-icon"></i> Memproses...');
         });
     </script>
 @endsection

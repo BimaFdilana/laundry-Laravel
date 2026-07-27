@@ -22,8 +22,23 @@
                 <a href="{{ url('add-order-satuan') }}" class="btn btn-primary">Tambah</a>
             </h4>
             <h6>Info : <code> Untuk Mengubah Status Order & Pembayaran Klik Pada Bagian 'Action' Masing-masing.</code></h6>
+
+            <form method="GET" action="{{ route('transaksi-satuan.index') }}" class="form-inline mb-3">
+                <input type="text" name="search" class="form-control mr-2" placeholder="Cari invoice/customer..."
+                    value="{{ request('search') }}">
+                <input type="date" name="dari" class="form-control mr-2" value="{{ request('dari') }}">
+                <span class="mr-2">s/d</span>
+                <input type="date" name="sampai" class="form-control mr-2" value="{{ request('sampai') }}">
+                <button type="submit" class="btn btn-info mr-2">Filter</button>
+                @if (request()->hasAny(['search', 'dari', 'sampai']))
+                    <a href="{{ route('transaksi-satuan.index') }}" class="btn btn-secondary">Reset</a>
+                @endif
+            </form>
+
+            <p class="text-muted">Menampilkan {{ $ordersatuan->firstItem() ?? 0 }} - {{ $ordersatuan->lastItem() ?? 0 }} dari {{ $ordersatuan->total() }} transaksi satuan</p>
+
             <div class="table-responsive m-t-0">
-                <table id="myTable" class="table display table-bordered table-striped">
+                <table class="table display table-bordered table-striped">
                     <thead>
                         <tr>
                             <th>#</th>
@@ -45,10 +60,9 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <?php $no = 1; ?>
                         @foreach ($ordersatuan as $item)
                             <tr>
-                                <td>{{ $no }}</td>
+                                <td>{{ $loop->iteration + ($ordersatuan->currentPage() - 1) * $ordersatuan->perPage() }}</td>
                                 <td style="font-weight:bold;">{{ $item->invoice }}</td>
                                 <td>{{ \Carbon\Carbon::parse($item->tgl_transaksi)->format('d-m-y') }}</td>
                                 <td>{{ $item->customer }}</td>
@@ -124,10 +138,13 @@
                                     </a>
                                 </td>
                             </tr>
-                            <?php $no++; ?>
                         @endforeach
                     </tbody>
                 </table>
+
+                <div class="mt-3">
+                    {{ $ordersatuan->links('vendor.pagination.custom') }}
+                </div>
 
             </div>
 
@@ -164,39 +181,7 @@
 @endsection
 @section('scripts')
     <script type="text/javascript">
-        // DATATABLE
-        $(document).ready(function() {
-            $('#myTable').DataTable();
-            $(document).ready(function() {
-                var table = $('#example').DataTable({
-                    "columnDefs": [{
-                        "visible": false,
-                        "targets": 2
-                    }],
-                    "order": [
-                        [2, 'asc']
-                    ],
-                    "displayLength": 25,
-                    "drawCallback": function(settings) {
-                        var api = this.api();
-                        var rows = api.rows({
-                            page: 'current'
-                        }).nodes();
-                        var last = null;
-                        api.column(2, {
-                            page: 'current'
-                        }).data().each(function(group, i) {
-                            if (last !== group) {
-                                $(rows).eq(i).before(
-                                    '<tr class="group"><td colspan="5">' + group +
-                                    '</td></tr>');
-                                last = group;
-                            }
-                        });
-                    }
-                });
-            });
-        });
+        // Datatable logic removed for server-side pagination
 
         // Transaksi Satuan
         // Tampilkan Modal Ubah Status Order

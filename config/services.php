@@ -51,6 +51,7 @@ return [
     'wablas' => [
         'token' => env('WABLAS_API_KEY'),
         'url' => env('WABLAS_URL', 'https://texas.wablas.com/api/send-message'),
+        'secret' => env('WABLAS_SECRET_KEY'),
     ],
 
 ];

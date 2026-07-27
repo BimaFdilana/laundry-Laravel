@@ -16,7 +16,7 @@
                     <h4 class="card-title">Input Aktivitas Karyawan</h4>
                 </div>
                 <div class="card-body">
-                    <form action="{{ route('superadmin.aktivitas-karyawan.store') }}" method="POST">
+                    <form action="{{ route($routePrefix . '.aktivitas-karyawan.store') }}" method="POST">
                         @csrf
                         <div class="row">
                             <div class="col-md-3">
@@ -82,7 +82,7 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h4 class="card-title">Riwayat Aktivitas</h4>
-                    <form method="GET" action="{{ route('superadmin.aktivitas-karyawan.index') }}" class="form-inline">
+                    <form method="GET" action="{{ route($routePrefix . '.aktivitas-karyawan.index') }}" class="form-inline">
                         <select name="karyawan_id" class="form-control mr-2">
                             <option value="">-- Semua Karyawan --</option>
                             @foreach ($karyawans as $k)
@@ -92,7 +92,7 @@
                         <input type="date" name="tanggal" class="form-control mr-2" value="{{ $tanggal }}">
                         <button type="submit" class="btn btn-info">Filter</button>
                         @if ($karyawan_id || $tanggal)
-                            <a href="{{ route('superadmin.aktivitas-karyawan.index') }}" class="btn btn-secondary ml-1">Reset</a>
+                            <a href="{{ route($routePrefix . '.aktivitas-karyawan.index') }}" class="btn btn-secondary ml-1">Reset</a>
                         @endif
                     </form>
                 </div>
@@ -153,14 +153,14 @@
                                     <td>{{ $item->jumlah_item ?? '-' }}</td>
                                     <td>
                                         @if (!$item->jam_selesai)
-                                            <form action="{{ route('superadmin.aktivitas-karyawan.selesai', $item->id) }}" method="POST" style="display:inline-block;">
+                                            <form action="{{ route($routePrefix . '.aktivitas-karyawan.selesai', $item->id) }}" method="POST" style="display:inline-block;">
                                                 @csrf
                                                 <button type="submit" class="btn btn-sm btn-success" title="Tandai Selesai">
                                                     <i class="feather icon-check"></i>
                                                 </button>
                                             </form>
                                         @endif
-                                        <form action="{{ route('superadmin.aktivitas-karyawan.destroy', $item->id) }}" method="POST" style="display:inline-block;"
+                                        <form action="{{ route($routePrefix . '.aktivitas-karyawan.destroy', $item->id) }}" method="POST" style="display:inline-block;"
                                             onsubmit="return confirm('Hapus aktivitas ini?')">
                                             @csrf
                                             @method('DELETE')

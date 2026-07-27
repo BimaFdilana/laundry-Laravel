@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\{TransaksiSatuan, TransaksiSatuanDetail, Satuan, Karyawan, User};
+use App\Models\{TransaksiSatuan, TransaksiSatuanDetail, Satuan, Karyawan, User, Diskon};
 use App\Notifications\StatusUpdateNotification;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Session;
@@ -12,10 +12,25 @@ use Illuminate\Support\Facades\Auth;
 
 class TransaksiSatuanController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        // Ambil data transaksi satuan
-        $ordersatuan = TransaksiSatuan::with(['karyawan'])->orderBy('id', 'DESC')->get();
+        $query = TransaksiSatuan::with(['karyawan'])->orderBy('id', 'DESC');
+
+        if ($request->filled('dari') && $request->filled('sampai')) {
+            $query->whereDate('created_at', '>=', $request->dari)
+                  ->whereDate('created_at', '<=', $request->sampai);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('invoice', 'LIKE', "%{$search}%")
+                  ->orWhere('customer', 'LIKE', "%{$search}%");
+            });
+        }
+
+        // Ambil data transaksi satuan dengan pagination 10
+        $ordersatuan = $query->paginate(10)->appends($request->query());
 
         // Ambil semua karyawan
         $karyawans = Karyawan::all();
@@ -51,11 +66,14 @@ class TransaksiSatuanController extends Controller
         } while ($exists);
         // =============================================
 
+        $diskons = Diskon::where('status', 1)->get();
+
         return view('modul_admin.transaksi_satuan.create', compact(
             'satuans',
             'karyawans',
             'customers',
-            'invoice'
+            'invoice',
+            'diskons'
         ));
     }
 
@@ -134,21 +152,21 @@ class TransaksiSatuanController extends Controller
             $dataInvoice = $transaksi; // alias agar lebih ringkas
             $total = $dataInvoice->details->sum('subtotal');
 
-            $message = "🧾 *LAUNDRY CAMP*\n"
-                . "Jl. Bantan, Gg. Cahaya, Senggoro\n"
-                . "Telp/WA: 082284392025\n"
-                . "==============================\n"
-                . "*ORDER LAYANAN SATUAN DIBUAT!*\n"
-                . "*Status Pembayaran:* {$dataInvoice->status_payment}\n"
-                . "==============================\n"
-                . "*Karyawan:* " . ($dataInvoice->karyawan?->name ?? '-') . "\n"
-                . "*Invoice:* {$dataInvoice->invoice}\n"
-                . "*Tanggal:* " . \Carbon\Carbon::parse($dataInvoice->tgl_transaksi)->format('d/m/Y') . "\n"
-                . "*Customer:* {$dataInvoice->customer}\n"
-                . "*Pewangi:* {$dataInvoice->jenis_pewangi}\n"
-                . "*Pembayaran:* {$dataInvoice->jenis_pembayaran} ({$dataInvoice->info_pembayaran})\n"
-                . "==============================\n"
-                . "*🧺 Detail Barang:*\n";
+            $message = "✨ *LAUNDRY CAMP* ✨\n"
+                . "📍 _Jl. Bantan, Gg. Cahaya, Senggoro_\n"
+                . "📞 _Hubungi: 082284392025_\n"
+                . "━━━━━━━━━━━━━━━━━━━━━━\n"
+                . "🎉 *ORDER LAYANAN SATUAN DIBUAT!* 🎉\n"
+                . "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                . "📌 *INFORMASI INVOICE*\n"
+                . "• *No. Invoice* : `{$dataInvoice->invoice}`\n"
+                . "• *Tanggal* : " . Carbon::parse($dataInvoice->tgl_transaksi)->format('d/m/Y') . "\n"
+                . "• *Nama Pelanggan* : {$dataInvoice->customer}\n"
+                . "• *Status Pembayaran* : *{$dataInvoice->status_payment}*\n\n"
+                . "🧺 *DETAIL LAYANAN*\n"
+                . "• *Petugas* : " . ($dataInvoice->karyawan?->name ?? '-') . "\n"
+                . "• *Pewangi* : {$dataInvoice->jenis_pewangi}\n\n"
+                . "📦 *DETAIL BARANG* :\n";
 
             foreach ($dataInvoice->details as $detail) {
                 $estimasi = '-';
@@ -168,29 +186,33 @@ class TransaksiSatuanController extends Controller
                     $estimasi = $detail->hari;
                 }
 
-                $message .= "------------------------------\n"
-                    . "{$detail->satuan->nama} ({$detail->pcs} pcs)\n"
-                    . "Harga: Rp " . number_format($detail->harga, 0, ',', '.') . "\n"
-                    . "Subtotal: Rp " . number_format($detail->subtotal, 0, ',', '.') . "\n"
-                    . "Estimasi selesai: $estimasi\n";
+                $message .= "──────────────────────\n"
+                    . "• *{$detail->satuan->nama}* ({$detail->pcs} pcs)\n"
+                    . "  Harga: Rp " . number_format($detail->harga, 0, ',', '.') . "\n"
+                    . "  Subtotal: Rp " . number_format($detail->subtotal, 0, ',', '.') . "\n"
+                    . "  Estimasi selesai: {$estimasi}\n";
             }
 
-            $message .= "==============================\n"
-                . "*Total:* Rp " . number_format($total, 0, ',', '.') . "\n"
-                . "*Diskon:* Rp " . number_format($dataInvoice->disc ?? 0, 0, ',', '.') . "\n"
-                . "*Harga Akhir:* Rp " . number_format($dataInvoice->harga_akhir ?? 0, 0, ',', '.') . "\n"
-                . "==============================\n"
-                . "Segera Hubungi dan Konfirmasi ke admin jika:\n"
-                . "1. Ada perbedaan jumlah pakaian hasil hitungan petugas laundry kami\n"
-                . "2. Ada pakaian luntur yang harus dipisahkan\n"
-                . "3. Ada kondisi pakaian terdapat noda dan rusak\n"
-                . "4. Terdapat benda berharga/uang yang tertinggal didalam pakaian\n"
-                . "==============================\n"
-                . "Terima kasih! Order Anda sedang kami proses.";
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━\n"
+                . "💰 *RINCIAN BIAYA*\n"
+                . "• *Subtotal* : Rp " . number_format($total, 0, ',', '.') . "\n"
+                . "• *Diskon* : - Rp " . number_format($dataInvoice->disc ?? 0, 0, ',', '.') . "\n"
+                . "• *Harga Akhir* : *Rp " . number_format($dataInvoice->harga_akhir ?? 0, 0, ',', '.') . "*\n"
+                . "• *Pembayaran* : {$dataInvoice->jenis_pembayaran} ({$dataInvoice->info_pembayaran})\n"
+                . "• *Catatan* : " . ($dataInvoice->catatan_admin ?? '-') . "\n\n"
+                . "━━━━━━━━━━━━━━━━━━━━━━\n"
+                . "⚠️ *INFORMASI PENTING (BACA)* ⚠️\n"
+                . "Harap konfirmasi ke Admin segera jika:\n"
+                . "1. Jumlah pakaian berbeda dengan hitungan.\n"
+                . "2. Ada pakaian luntur yang wajib dipisah.\n"
+                . "3. Ada pakaian bernoda berat atau rusak.\n"
+                . "4. Ada uang/benda berharga tertinggal.\n"
+                . "━━━━━━━━━━━━━━━━━━━━━━\n"
+                . "_Terima kasih! Order Anda sedang kami proses._";
 
             $url = route('customer.invoicesatuan', $dataInvoice->invoice); // pastikan rute ini sesuai
 
-            $customer->notify(new \App\Notifications\StatusUpdateNotification($message, $url));
+            $customer->notify(new StatusUpdateNotification($message, $url));
         }
 
         Session::flash('success', 'Transaksi Satuan berhasil ditambahkan.');
@@ -226,7 +248,7 @@ class TransaksiSatuanController extends Controller
                     . "==============================\n"
                     . "*Karyawan:* " . ($dataInvoice->karyawan?->name ?? '-') . "\n"
                     . "*Invoice:* {$dataInvoice->invoice}\n"
-                    . "*Tanggal:* " . \Carbon\Carbon::parse($dataInvoice->tgl_transaksi)->format('d/m/Y') . "\n"
+                    . "*Tanggal:* " . Carbon::parse($dataInvoice->tgl_transaksi)->format('d/m/Y') . "\n"
                     . "*Customer:* {$dataInvoice->customer}\n"
                     . "*Pewangi:* {$dataInvoice->jenis_pewangi}\n"
                     . "*Pembayaran:* {$dataInvoice->jenis_pembayaran} ({$dataInvoice->info_pembayaran})\n"
@@ -251,7 +273,7 @@ class TransaksiSatuanController extends Controller
                     . "==============================\n"
                     . "Terima kasih!\n"
                     . "Laundry telah selesai ~ " . ($dataInvoice->ket_delivery ?? '-') . "\n"
-                    . "Tanggal diambil/diantar: " . \Carbon\Carbon::parse($dataInvoice->tgl_ambil)->format('d/m/Y H:i');
+                    . "Tanggal diambil/diantar: " . Carbon::parse($dataInvoice->tgl_ambil)->format('d/m/Y H:i');
 
                 $url = route('customer.invoicesatuan', $dataInvoice->invoice);
 
