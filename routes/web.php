@@ -125,6 +125,10 @@ Route::middleware('auth')->group(function () {
         Route::put('inventaris/{id}', [InventarisController::class, 'update'])->name('inventaris.update');
         Route::delete('inventaris/{id}', [InventarisController::class, 'destroy'])->name('inventaris.destroy');
 
+        // Riwayat Kuota (opsi B, branch feat/kuota-history)
+        Route::get('/superadmin/kuota/history', [\App\Http\Controllers\Admin\KuotaHistoryController::class, 'index'])->name('superadmin.kuota.history');
+        Route::get('/superadmin/kuota/{customerId}/history', [\App\Http\Controllers\Admin\KuotaHistoryController::class, 'byCustomer'])->name('superadmin.kuota.history.customer');
+
         // Piutang
         Route::get('/superadmin/piutang', [\App\Http\Controllers\SuperAdmin\PiutangController::class, 'index'])->name('superadmin.piutang.index');
         Route::post('/superadmin/piutang/{tipe}/{id}/bayar', [\App\Http\Controllers\SuperAdmin\PiutangController::class, 'bayar'])->name('superadmin.piutang.bayar');
@@ -213,6 +217,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/admin-laporan/bulanan', [AdminLaporanController::class, 'bulanan'])->name('admin-laporan.bulanan');
         Route::get('/admin-laporan/tahunan', [AdminLaporanController::class, 'tahunan'])->name('admin-laporan.tahunan');
         Route::get('/admin-laporan/total', [AdminLaporanController::class, 'total'])->name('admin-laporan.total');
+
+        // Riwayat Kuota (opsi B, branch feat/kuota-history)
+        Route::get('/kuota/history', [\App\Http\Controllers\Admin\KuotaHistoryController::class, 'index'])->name('kuota.history');
+        Route::get('/kuota/{customerId}/history', [\App\Http\Controllers\Admin\KuotaHistoryController::class, 'byCustomer'])->name('kuota.history.customer');
 
         // Piutang
         Route::get('/admin/piutang', [\App\Http\Controllers\Admin\PiutangController::class, 'index'])->name('admin.piutang.index');

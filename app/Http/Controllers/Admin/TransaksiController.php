@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\{Harga, Transaksi, TransaksiSatuan};
+use App\Models\{Harga, KuotaLaundryLog, Transaksi, TransaksiSatuan};
 use Rupiah;
 
 class TransaksiController extends Controller
@@ -84,7 +84,10 @@ class TransaksiController extends Controller
             return back()->with('error', 'Data invoice tidak ditemukan.');
         }
 
-        return view('modul_admin.transaksi.invoice', compact('invoice', 'dataInvoice'));
+        // Riwayat kuota (opsi B) yang terkait transaksi ini, kalau pakai kuota paket
+        $kuotaLog = KuotaLaundryLog::where('transaksi_id', $dataInvoice->id)->first();
+
+        return view('modul_admin.transaksi.invoice', compact('invoice', 'dataInvoice', 'kuotaLog'));
     }
 
     public function print($id)
