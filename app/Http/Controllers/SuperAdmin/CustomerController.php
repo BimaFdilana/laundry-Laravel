@@ -57,13 +57,13 @@ class CustomerController extends Controller
 
         $adduser->assignRole($adduser->auth);
 
-        // Tambahkan kuota jika checkbox dicentang
+        // Tambahkan kuota jika checkbox dicentang. firstOrCreate cegah baris kuota ganda
+        // per (user_id, kategori) kalau form ini pernah ke-submit lebih dari sekali.
         if ($request->has('dapat_kuota')) {
-            KuotaLaundry::create([
-                'user_id' => $adduser->id,
-                'kategori' => $request->kategori_kuota,
-                'kuota' => 10
-            ]);
+            KuotaLaundry::firstOrCreate(
+                ['user_id' => $adduser->id, 'kategori' => $request->kategori_kuota],
+                ['kuota' => 10]
+            );
         }
 
         Session::flash('success', 'Tambah Customer Berhasil');

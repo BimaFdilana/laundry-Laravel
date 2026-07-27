@@ -50,6 +50,8 @@ Route::middleware('auth')->group(function () {
 
     // Modul Super Admin
     Route::prefix('/')->middleware('role:SuperAdmin')->group(function () {
+        Route::view('/superadmin/update-terbaru', 'superadmin.update-terbaru')->name('superadmin.update-terbaru');
+
         // Setting
         Route::get('setting-superadmin', 'SuperAdmin\SettingsController@setting');
         Route::put('superadmin/set-theme/{id}', 'SuperAdmin\SettingsController@set_theme')->name('superadmin-setting-theme.update');
@@ -138,8 +140,6 @@ Route::middleware('auth')->group(function () {
 
     // Modul Admin
     Route::prefix('/')->middleware('role:Admin')->group(function () {
-        Route::resource('admin', 'Admin\AdminController');
-
         // Route untuk ganti password
         Route::post('profile-admin-change-password', [AdminController::class, 'changePassword'])->name('profile.admin.changePassword');
 
