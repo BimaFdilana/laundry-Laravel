@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\KuotaLaundry;
-use App\Models\Pemasukan;
+use App\Models\{Harga, Karyawan, KuotaLaundry, KuotaLaundryLog, Pemasukan};
 use App\Models\PurchaseRequest;
 use App\Notifications\PaketDikonfirmasiNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class PurchaseRequestController extends Controller
 {
@@ -67,6 +67,19 @@ class PurchaseRequestController extends Controller
 
             $kuota->kuota = ($kuota->kuota ?? 0) + $kuotaTambah;
             $kuota->save();
+
+            // Log pembelian paket
+            KuotaLaundryLog::create([
+                'user_id'       => $purchase->user_id,
+                'purchase_request_id' => $purchase->id,
+                'kategori'      => $kategori,
+                'tipe'          => 'pembelian',
+                'kuota_sebelum' => ($kuota->kuota ?? 0) - (float) $kuotaTambah,
+                'perubahan'     => (float) $kuotaTambah,
+                'kuota_sesudah' => (float) $kuota->kuota,
+                'keterangan'    => "Paket {$kuotaTambah}kg - Harga Rp " . number_format($purchase->package_price,0,',','.') ,
+                'created_by'    => Auth::id(),
+            ]);
 
             $purchase->status = 'confirmed';
             $purchase->save();

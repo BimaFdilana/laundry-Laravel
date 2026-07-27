@@ -247,6 +247,15 @@
                 <p><strong>Disc:</strong> {{ Rupiah::getRupiah($dataInvoice->disc) }}</p>
                 <hr>
                 <h4><strong>Total Bayar:</strong> {{ Rupiah::getRupiah($dataInvoice->harga_akhir) }}</h4>
+
+                @if($kuotaLog)
+                    <div class="alert alert-info mt-3 text-start">
+                        <strong>Perubahan Kuota ({{ $kuotaLog->kategori }})</strong>
+                        <div>Kuota sebelum: {{ number_format($kuotaLog->kuota_sebelum, 2) }} kg</div>
+                        <div>Pemakaian: {{ number_format(abs($kuotaLog->perubahan), 2) }} kg</div>
+                        <div>Kuota sesudah: {{ number_format($kuotaLog->kuota_sesudah, 2) }} kg</div>
+                    </div>
+                @endif
             </div>
         </div>
 

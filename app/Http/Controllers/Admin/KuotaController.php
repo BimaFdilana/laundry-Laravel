@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\KuotaLaundry;
+use App\Models\KuotaLaundryLog;
 use App\Models\Paket;
 use App\Models\Pemasukan;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class KuotaController extends Controller
 {
@@ -50,32 +53,59 @@ class KuotaController extends Controller
             'keterangan' => 'nullable|string',
         ]);
 
-        $existing = KuotaLaundry::where('user_id', $request->user_id)
-            ->where('kategori', $request->kategori)
-            ->first();
+        DB::transaction(function () use ($request) {
+            $existing = KuotaLaundry::where('user_id', $request->user_id)
+                ->where('kategori', $request->kategori)
+                ->lockForUpdate()
+                ->first();
 
-        if ($existing) {
-            $existing->kuota += $request->kuota;
-            $existing->save();
-        } else {
-            KuotaLaundry::create([
-                'user_id' => $request->user_id,
-                'kuota' => $request->kuota,
-                'kategori' => $request->kategori,
+            if ($existing) {
+                $sebelum = (float) $existing->kuota;
+                $existing->kuota += $request->kuota;
+                $existing->save();
+
+                // Log penambahan dari admin
+                KuotaLaundryLog::create([
+                    'user_id'       => $request->user_id,
+                    'kategori'      => $request->kategori,
+                    'tipe'          => 'penambahan_admin',
+                    'kuota_sebelum' => $sebelum,
+                    'perubahan'     => (float) $request->kuota,
+                    'kuota_sesudah' => (float) $existing->kuota,
+                    'keterangan'    => 'Penambahan kuota oleh admin',
+                    'created_by'    => Auth::id(),
+                ]);
+            } else {
+                $kuota = KuotaLaundry::create([
+                    'user_id' => $request->user_id,
+                    'kuota' => $request->kuota,
+                    'kategori' => $request->kategori,
+                ]);
+
+                KuotaLaundryLog::create([
+                    'user_id'       => $request->user_id,
+                    'kategori'      => $request->kategori,
+                    'tipe'          => 'kuota_awal',
+                    'kuota_sebelum' => 0,
+                    'perubahan'     => (float) $request->kuota,
+                    'kuota_sesudah' => (float) $kuota->kuota,
+                    'keterangan'    => 'Kuota baru dari admin',
+                    'created_by'    => Auth::id(),
+                ]);
+            }
+
+            // Catat pemasukan tetap di luar log kuota
+            $user = User::find($request->user_id);
+            Pemasukan::create([
+                'pemasukan' => $user->name,
+                'kategori' => 'Kuota (' . $request->kategori . ')',
+                'harga' => $request->harga,
+                'jumlah' => $request->kuota,
+                'total' => $request->harga - ($request->diskon ?? 0),
+                'keterangan' => 'Diskon: ' . ($request->diskon ?? 0) . '. ' . $request->keterangan,
+                'tanggal' => date('d-m-Y'),
             ]);
-        }
-
-        $user = User::find($request->user_id);
-
-        Pemasukan::create([
-            'pemasukan' => $user->name,
-            'kategori' => 'Kuota (' . $request->kategori . ')',
-            'harga' => $request->harga,
-            'jumlah' => $request->kuota,
-            'total' => $request->harga - ($request->diskon ?? 0),
-            'keterangan' => 'Diskon: ' . ($request->diskon ?? 0) . '. ' . $request->keterangan,
-            'tanggal' => date('d-m-Y'),
-        ]);
+        });
 
         return redirect('kuota')->with('success', 'Kuota berhasil diperbarui.');
     }
@@ -94,10 +124,29 @@ class KuotaController extends Controller
             'kategori' => 'required|string|max:255'
         ]);
 
-        $kuota = KuotaLaundry::findOrFail($id);
-        $kuota->kuota = $request->kuota;
-        $kuota->kategori = $request->kategori;
-        $kuota->save();
+        DB::transaction(function () use ($request, $id) {
+            $kuota = KuotaLaundry::lockForUpdate()->findOrFail($id);
+
+            $sebelum = (float) $kuota->kuota;
+            $sesudah = (float) $request->kuota;
+
+            $kuota->kuota = $request->kuota;
+            $kuota->kategori = $request->kategori;
+            $kuota->save();
+
+            if ($sebelum != $sesudah) {
+                KuotaLaundryLog::create([
+                    'user_id'       => $kuota->user_id,
+                    'kategori'      => $kuota->kategori,
+                    'tipe'          => 'koreksi_admin',
+                    'kuota_sebelum' => $sebelum,
+                    'perubahan'     => $sesudah - $sebelum,
+                    'kuota_sesudah' => $sesudah,
+                    'keterangan'    => 'Koreksi kuota oleh admin',
+                    'created_by'    => Auth::id(),
+                ]);
+            }
+        });
 
         return redirect('kuota')->with('success', 'Kuota dan kategori berhasil diperbarui.');
     }

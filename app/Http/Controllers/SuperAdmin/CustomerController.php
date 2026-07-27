@@ -5,9 +5,11 @@ namespace App\Http\Controllers\SuperAdmin;
 use App\Http\Requests\AddCustomerRequest;
 use App\Http\Controllers\Controller;
 use App\Models\KuotaLaundry;
+use App\Models\KuotaLaundryLog;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Auth;
 
 class CustomerController extends Controller
 {
@@ -60,10 +62,28 @@ class CustomerController extends Controller
         // Tambahkan kuota jika checkbox dicentang. firstOrCreate cegah baris kuota ganda
         // per (user_id, kategori) kalau form ini pernah ke-submit lebih dari sekali.
         if ($request->has('dapat_kuota')) {
-            KuotaLaundry::firstOrCreate(
-                ['user_id' => $adduser->id, 'kategori' => $request->kategori_kuota],
-                ['kuota' => 10]
-            );
+            $existing = KuotaLaundry::where('user_id', $adduser->id)
+                ->where('kategori', $request->kategori_kuota)
+                ->first();
+
+            if (!$existing) {
+                KuotaLaundry::create([
+                    'user_id' => $adduser->id,
+                    'kategori' => $request->kategori_kuota,
+                    'kuota' => 10,
+                ]);
+
+                KuotaLaundryLog::create([
+                    'user_id'       => $adduser->id,
+                    'kategori'      => $request->kategori_kuota,
+                    'tipe'          => 'kuota_awal',
+                    'kuota_sebelum' => 0,
+                    'perubahan'     => 10,
+                    'kuota_sesudah' => 10,
+                    'keterangan'    => 'Kuota awal pendaftaran customer',
+                    'created_by'    => Auth::id(),
+                ]);
+            }
         }
 
         Session::flash('success', 'Tambah Customer Berhasil');

@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\{Harga, Karyawan, Transaksi, User};
+use App\Models\{Harga, Karyawan, KuotaLaundryLog, Transaksi, User};
 use Illuminate\Support\Facades\Session;
 use App\Notifications\{StatusUpdateNotification};
 use Carbon\Carbon;
@@ -136,10 +136,11 @@ class PelayananController extends Controller
         try {
             $result = DB::transaction(function () use ($request, $customer, $hargaObj) {
                 $berat = $request->kg;
+                $kategori = $hargaObj->jenis;
 
                 // Lock baris kuota agar pengurangan tidak saling menimpa (lost update).
                 $kuota = $customer->kuotaLaundry()
-                    ->whereRaw('LOWER(TRIM(kategori)) = ?', [strtolower(trim($hargaObj->jenis))])
+                    ->whereRaw('LOWER(TRIM(kategori)) = ?', [strtolower(trim($kategori))])
                     ->lockForUpdate()
                     ->first();
 
@@ -225,6 +226,27 @@ class PelayananController extends Controller
                 }
 
                 $this->saveWithUniqueInvoice($order);
+
+                // Snapshot kuota sebelum untuk log
+                $kuotaSebelum = null;
+                if ($bolehPakaiKuota && $kuota) {
+                    $kuotaSebelum = (float) $kuota->kuota + (float) $ditanggung_kuota;
+                }
+
+                // Log perubahan kuota (paket)
+                if ($bolehPakaiKuota && $kuota && $ditanggung_kuota > 0) {
+                    KuotaLaundryLog::create([
+                        'user_id'       => $customer->id,
+                        'transaksi_id'  => $order->id,
+                        'kategori'      => $kategori,
+                        'tipe'          => 'pemakaian',
+                        'kuota_sebelum' => $kuotaSebelum,
+                        'perubahan'     => -1 * (float) $ditanggung_kuota,
+                        'kuota_sesudah' => (float) $kuota->kuota,
+                        'keterangan'    => "Invoice {$order->invoice} - {$berat}kg, {$ditanggung_kuota}kg pakai kuota",
+                        'created_by'    => Auth::id(),
+                    ]);
+                }
 
                 return [
                     'order'            => $order,

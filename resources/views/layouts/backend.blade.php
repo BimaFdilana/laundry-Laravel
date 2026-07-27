@@ -238,9 +238,17 @@
                         </ul>
                     </li>
 
-                    <li class="nav-item {{ request()->routeIs('kuota.index', 'kuota.create') ? 'active' : '' }}"><a
-                            href="{{ url('kuota') }}"><i class="feather icon-database"></i><span class="menu-title"
+                    <li class="nav-item {{ request()->routeIs('kuota.*') ? 'active' : '' }}">
+                        <a href="{{ url('kuota') }}"><i class="feather icon-database"></i><span class="menu-title"
                                 data-i18n="Dashboard">Kuota Customer</span></a>
+                        <ul class="menu-content">
+                            <li class="{{ request()->routeIs('kuota.index', 'kuota.create') ? 'active' : '' }}">
+                                <a href="{{ url('kuota') }}"><i class="feather icon-circle"></i><span class="menu-item">Kelola Kuota</span></a>
+                            </li>
+                            <li class="{{ request()->routeIs('kuota.history', 'kuota.history.customer') ? 'active' : '' }}">
+                                <a href="{{ route('kuota.history') }}"><i class="feather icon-circle"></i><span class="menu-item">Riwayat Kuota</span></a>
+                            </li>
+                        </ul>
                     </li>
 
                     <li class="nav-item {{ request()->is('gift') ? 'active' : '' }}">
@@ -325,6 +333,16 @@
                                 class="nav-item {{ request()->routeIs('inventaris.index', 'inventaris.create', 'inventaris.edit') ? 'active' : '' }}">
                                 <a href="{{ url('inventaris') }}"><i class="feather icon-circle"></i><span
                                         class="menu-title" data-i18n="List">Inventaris</span></a>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <li class="nav-item {{ request()->routeIs('superadmin.kuota.*') ? 'active' : '' }}">
+                        <a href="#"><i class="feather icon-database"></i><span class="menu-title"
+                                data-i18n="Dashboard">Kuota Customer</span></a>
+                        <ul class="menu-content">
+                            <li class="nav-item {{ request()->routeIs('superadmin.kuota.history', 'superadmin.kuota.history.customer') ? 'active' : '' }}">
+                                <a href="{{ route('superadmin.kuota.history') }}"><i class="feather icon-circle"></i><span class="menu-item">Riwayat Kuota</span></a>
                             </li>
                         </ul>
                     </li>

@@ -52,6 +52,11 @@ class User extends Authenticatable
         return $this->hasMany(KuotaLaundry::class, 'user_id');
     }
 
+    public function kuotaLaundryLogs()
+    {
+        return $this->hasMany(KuotaLaundryLog::class, 'user_id');
+    }
+
     public function gifts()
     {
         return $this->hasMany(Gift::class);
