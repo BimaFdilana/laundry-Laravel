@@ -18,6 +18,10 @@ use App\Http\Controllers\SuperAdmin\LaporanController;
 use App\Http\Controllers\SuperAdmin\NotifikasiController as SuperAdminNotifikasiController;
 use App\Http\Controllers\SuperAdmin\SuperAdminController;
 use App\Http\Controllers\SuperAdmin\TransaksiController as SuperAdminTransaksiController;
+use App\Http\Controllers\SuperAdmin\AktivitasKaryawanController;
+use App\Http\Controllers\SuperAdmin\RewardKaryawanController;
+use App\Http\Controllers\SuperAdmin\PiutangController as SuperAdminPiutangController;
+use App\Http\Controllers\Admin\PiutangController as AdminPiutangController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -79,16 +83,16 @@ Route::middleware('auth')->group(function () {
         Route::get('/laporan/perbandingan', [LaporanController::class, 'perbandingan'])->name('laporan.perbandingan');
 
         // Aktivitas Karyawan
-        Route::get('/superadmin/aktivitas-karyawan', [\App\Http\Controllers\SuperAdmin\AktivitasKaryawanController::class, 'index'])->name('superadmin.aktivitas-karyawan.index');
-        Route::post('/superadmin/aktivitas-karyawan', [\App\Http\Controllers\SuperAdmin\AktivitasKaryawanController::class, 'store'])->name('superadmin.aktivitas-karyawan.store');
-        Route::post('/superadmin/aktivitas-karyawan/{id}/selesai', [\App\Http\Controllers\SuperAdmin\AktivitasKaryawanController::class, 'selesai'])->name('superadmin.aktivitas-karyawan.selesai');
-        Route::delete('/superadmin/aktivitas-karyawan/{id}', [\App\Http\Controllers\SuperAdmin\AktivitasKaryawanController::class, 'destroy'])->name('superadmin.aktivitas-karyawan.destroy');
-        Route::get('/superadmin/aktivitas-karyawan/by-transaksi', [\App\Http\Controllers\SuperAdmin\AktivitasKaryawanController::class, 'getByTransaksi'])->name('superadmin.aktivitas-karyawan.by-transaksi');
+        Route::get('/superadmin/aktivitas-karyawan', [AktivitasKaryawanController::class, 'index'])->name('superadmin.aktivitas-karyawan.index');
+        Route::post('/superadmin/aktivitas-karyawan', [AktivitasKaryawanController::class, 'store'])->name('superadmin.aktivitas-karyawan.store');
+        Route::post('/superadmin/aktivitas-karyawan/{id}/selesai', [AktivitasKaryawanController::class, 'selesai'])->name('superadmin.aktivitas-karyawan.selesai');
+        Route::delete('/superadmin/aktivitas-karyawan/{id}', [AktivitasKaryawanController::class, 'destroy'])->name('superadmin.aktivitas-karyawan.destroy');
+        Route::get('/superadmin/aktivitas-karyawan/by-transaksi', [AktivitasKaryawanController::class, 'getByTransaksi'])->name('superadmin.aktivitas-karyawan.by-transaksi');
 
         // Reward Karyawan
-        Route::get('/superadmin/reward-karyawan', [\App\Http\Controllers\SuperAdmin\RewardKaryawanController::class, 'index'])->name('superadmin.reward-karyawan.index');
-        Route::post('/superadmin/reward-karyawan', [\App\Http\Controllers\SuperAdmin\RewardKaryawanController::class, 'store'])->name('superadmin.reward-karyawan.store');
-        Route::delete('/superadmin/reward-karyawan/{id}', [\App\Http\Controllers\SuperAdmin\RewardKaryawanController::class, 'destroy'])->name('superadmin.reward-karyawan.destroy');
+        Route::get('/superadmin/reward-karyawan', [RewardKaryawanController::class, 'index'])->name('superadmin.reward-karyawan.index');
+        Route::post('/superadmin/reward-karyawan', [RewardKaryawanController::class, 'store'])->name('superadmin.reward-karyawan.store');
+        Route::delete('/superadmin/reward-karyawan/{id}', [RewardKaryawanController::class, 'destroy'])->name('superadmin.reward-karyawan.destroy');
 
         // Admin
         Route::resource('kelola-admin', 'SuperAdmin\AdminController');
@@ -124,8 +128,8 @@ Route::middleware('auth')->group(function () {
         Route::delete('inventaris/{id}', [InventarisController::class, 'destroy'])->name('inventaris.destroy');
 
         // Piutang
-        Route::get('/superadmin/piutang', [\App\Http\Controllers\SuperAdmin\PiutangController::class, 'index'])->name('superadmin.piutang.index');
-        Route::post('/superadmin/piutang/{tipe}/{id}/bayar', [\App\Http\Controllers\SuperAdmin\PiutangController::class, 'bayar'])->name('superadmin.piutang.bayar');
+        Route::get('/superadmin/piutang', [SuperAdminPiutangController::class, 'index'])->name('superadmin.piutang.index');
+        Route::post('/superadmin/piutang/{tipe}/{id}/bayar', [SuperAdminPiutangController::class, 'bayar'])->name('superadmin.piutang.bayar');
 
         // Transaksi
         Route::get('/superadmin/transaksi', [SuperAdminTransaksiController::class, 'index'])->name('superadmin.transaksi');
@@ -138,7 +142,11 @@ Route::middleware('auth')->group(function () {
 
     // Modul Admin
     Route::prefix('/')->middleware('role:Admin')->group(function () {
-        Route::resource('admin', 'Admin\AdminController');
+        // Piutang
+        Route::get('/admin/piutang', [AdminPiutangController::class, 'index'])->name('admin.piutang.index');
+        Route::post('/admin/piutang/{tipe}/{id}/bayar', [AdminPiutangController::class, 'bayar'])->name('admin.piutang.bayar');
+
+        Route::resource('admin', 'Admin\AdminController')->except(['show']);
 
         // Route untuk ganti password
         Route::post('profile-admin-change-password', [AdminController::class, 'changePassword'])->name('profile.admin.changePassword');
@@ -214,9 +222,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/admin-laporan/tahunan', [AdminLaporanController::class, 'tahunan'])->name('admin-laporan.tahunan');
         Route::get('/admin-laporan/total', [AdminLaporanController::class, 'total'])->name('admin-laporan.total');
 
-        // Piutang
-        Route::get('/admin/piutang', [\App\Http\Controllers\Admin\PiutangController::class, 'index'])->name('admin.piutang.index');
-        Route::post('/admin/piutang/{tipe}/{id}/bayar', [\App\Http\Controllers\Admin\PiutangController::class, 'bayar'])->name('admin.piutang.bayar');
+
     });
 
     // Modul Customer
