@@ -17,7 +17,7 @@ class CleanupDuplicateTransaksiData extends Migration
         // Sumber: KuotaController & PurchaseRequestController create tanpa set 'tanggal'
         DB::statement("UPDATE pemasukans
             SET tanggal = DATE_FORMAT(created_at, '%d-%m-%Y')
-            WHERE tanggal IS NULL OR tanggal = ''");
+            WHERE tanggal IS NULL");
 
         // 3. Transaksi satuan duplikat (invoice beda, customer+tgl sama): TIDAK auto-hapus.
         //    43 grup perlu review manual. Lihat command: php artisan report:duplicate-satuan

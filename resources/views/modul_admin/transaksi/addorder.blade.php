@@ -44,17 +44,12 @@
                                 </div>
                             </div>
 
-                            <!-- No Transaksi -->
+                            <!-- No Transaksi (preview, nomor final ditentukan saat simpan) -->
                             <div class="col-md-3">
                                 <div class="form-group has-success">
-                                    <label class="control-label">No Transaksi</label>
-                                    <input type="text" name="invoice" value="{{ $newID }}"
-                                        class="form-control {{ $errors->has('invoice') ? 'is-invalid' : '' }}" readonly>
-                                    @if ($errors->has('invoice'))
-                                        <span class="invalid-feedback" role="alert">
-                                            <strong>{{ $errors->first('invoice') }}</strong>
-                                        </span>
-                                    @endif
+                                    <label class="control-label">No Transaksi (Preview)</label>
+                                    <input type="text" value="{{ $newID }}" class="form-control" readonly disabled>
+                                    <small class="form-text text-muted">Nomor final ditentukan otomatis saat disimpan.</small>
                                 </div>
                             </div>
 

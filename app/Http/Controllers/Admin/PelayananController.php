@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Session;
 use App\Notifications\{StatusUpdateNotification};
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Database\QueryException;
 
@@ -36,27 +37,8 @@ class PelayananController extends Controller
 
         $harga = Harga::where('status', 1)->get();
 
-        // === INVOICE UNIK PER HARI + VALIDASI DB ===
-        $today = date('Y-m-d');
-
-        $lastInvoice = Transaksi::whereDate('created_at', $today)
-            ->orderBy('id', 'DESC')
-            ->first();
-
-        $nextNumber = 1;
-
-        if ($lastInvoice && isset($lastInvoice->invoice)) {
-            $lastNumber = (int) substr($lastInvoice->invoice, -3);
-            $nextNumber = $lastNumber + 1;
-        }
-
-        // Loop anti-dobel invoice
-        do {
-            $newID = 'LC-' . date('ymd') . '-' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
-            $exists = Transaksi::where('invoice', $newID)->exists();
-            if ($exists) $nextNumber++;
-        } while ($exists);
-        // =============================================
+        // Nomor invoice hanya PREVIEW. Nomor final dibuat saat store() agar anti-bentrok.
+        $newID = $this->previewInvoice();
 
         $tgl = date('d-m-Y');
 
@@ -80,11 +62,50 @@ class PelayananController extends Controller
         ));
     }
 
+    // Nomor invoice untuk preview di form (belum tentu jadi nomor final).
+    private function previewInvoice()
+    {
+        $last = Transaksi::whereDate('created_at', date('Y-m-d'))
+            ->orderBy('id', 'DESC')
+            ->first();
+
+        $next = ($last && $last->invoice) ? ((int) substr($last->invoice, -3)) + 1 : 1;
+
+        return 'LC-' . date('ymd') . '-' . str_pad($next, 3, '0', STR_PAD_LEFT);
+    }
+
+    // Simpan order dengan nomor invoice yang di-generate saat submit + retry anti-bentrok.
+    // Harus dipanggil di dalam DB::transaction agar lock kuota & nomor konsisten.
+    private function saveWithUniqueInvoice(Transaksi $order)
+    {
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $last = Transaksi::whereDate('created_at', date('Y-m-d'))
+                ->orderBy('id', 'DESC')
+                ->lockForUpdate()
+                ->first();
+
+            $next = ($last && $last->invoice) ? ((int) substr($last->invoice, -3)) + 1 : 1;
+            $order->invoice = 'LC-' . date('ymd') . '-' . str_pad($next, 3, '0', STR_PAD_LEFT);
+
+            try {
+                $order->save();
+                return;
+            } catch (QueryException $e) {
+                // 23000 = integrity constraint (unique). Coba nomor berikutnya.
+                if (($e->errorInfo[0] ?? null) === '23000') {
+                    continue;
+                }
+                throw $e;
+            }
+        }
+
+        throw new \RuntimeException('Gagal menghasilkan nomor invoice unik setelah beberapa percobaan.');
+    }
+
     // Proses simpan order
     public function store(Request $request)
     {
         $request->validate([
-            'invoice'           => 'required|unique:transaksis,invoice',
             'idempotency_key'   => 'required|uuid',
             'tgl_transaksi'     => 'required',
             'kg'                => 'required|regex:/^[0-9.]+$/',
@@ -102,100 +123,117 @@ class PelayananController extends Controller
         // Ambil customer berdasarkan customer_id yang dipilih admin
         $customer = User::findOrFail($request->customer_id);
 
-        $order = new Transaksi();
-        $order->invoice          = $request->invoice;
-        $order->idempotency_key  = $request->idempotency_key;
-        $order->tgl_transaksi = Carbon::parse($request->tgl_transaksi);
-        $order->status_payment   = 'Pending';
-        $order->harga_id         = $request->harga_id;
-        $order->customer_id      = $customer->id;
-        $order->customer         = $customer->name;
-        $order->email_customer   = $customer->email;
-        $order->hari             = $request->hari;
-        $order->kg               = $request->kg;
-        $order->jumlah_lembar_baju = $request->jumlah_lembar_baju;
-        $order->karyawan_id      = $request->karyawan_id;
-        $order->catatan_admin    = $request->catatan_admin;
-        $order->jenis_pewangi    = $request->jenis_pewangi;
+        // Replay POST dengan idempotency key sama → langsung ke record yang sudah ada
+        $existing = Transaksi::where('idempotency_key', $request->idempotency_key)->first();
+        if ($existing) {
+            Session::flash('info', 'Order sudah pernah dibuat (duplikat dicegah).');
+            return redirect()->route('transaksi.print', $existing->id);
+        }
 
         $hargaObj = Harga::findOrFail($request->harga_id);
 
-        $berat = $order->kg;
-        $kategori = $hargaObj->jenis;
-
-        // Ambil kuota laundry dari customer terpilih
-        $kuota = $customer->kuotaLaundry()->where('kategori', $kategori)->first();
-
-        // Cek apakah transaksi diizinkan
-        if ($hargaObj->harga == 0 && (!$kuota || $kuota->kuota <= 0)) {
-            return redirect()->back()->with('error', 'Transaksi tidak bisa dilakukan karena harga Rp 0 dan tidak ada kuota tersedia.');
-        }
-
-        $status_payment = 'Pending';
-        $sisa_berbayar = $berat;
-        $ditanggung_kuota = 0;
-
-        // Cek apakah kuota bisa digunakan (hanya jika layanan bernama "PAKET")
-        $bolehPakaiKuota = strtolower($hargaObj->nama) === 'paket';
-
-        if ($bolehPakaiKuota && $kuota && $kuota->kuota > 0) {
-            if ($kuota->kuota >= $berat) {
-                $kuota->kuota -= $berat;
-                $kuota->save();
-                $sisa_berbayar = 0;
-                $ditanggung_kuota = $berat;
-                $status_payment = 'Success';
-            } else {
-                $sisa_berbayar = $berat - $kuota->kuota;
-                $ditanggung_kuota = $kuota->kuota;
-                $kuota->kuota = 0;
-                $kuota->save();
-            }
-        }
-
-        $total_harga = $berat * $hargaObj->harga;
-
-        if ($sisa_berbayar == 0) {
-            $order->harga_akhir = 0;
-        } else {
-            $order->harga_akhir = $total_harga;
-            if ($request->disc != NULL) {
-                $disc = $request->disc; // Diskon dalam bentuk nominal langsung
-                $order->disc = $disc;   // Simpan nilai diskon langsung (bukan persen)
-                $order->harga_akhir = $total_harga - $disc;
-
-                // Pastikan harga akhir tidak negatif
-                if ($order->harga_akhir < 0) {
-                    $order->harga_akhir = 0;
-                }
-            }
-        }
-
-        $order->harga = $hargaObj->harga;
-        $order->jenis_pembayaran = $request->jenis_pembayaran;
-        $order->tgl = Carbon::now()->day;
-        $order->bulan = Carbon::now()->month;
-        $order->tahun = Carbon::now()->year;
-
-        // Override status jika admin pilih Lunas
-        if ($request->status_bayar === 'lunas') {
-            $status_payment = 'Success';
-        }
-        $order->status_payment = $status_payment;
-
-        $sisa_bayar = $sisa_berbayar * $hargaObj->harga;
-
-        if ($sisa_berbayar == 0) {
-            $order->info_pembayaran = 'Sudah Dibayar oleh Kuota';
-        } elseif ($sisa_berbayar < $berat) {
-            $order->info_pembayaran = 'Sisa yang harus dibayar: Rp ' . number_format($sisa_bayar, 0, ',', '.');
-        } else {
-            $order->info_pembayaran = 'Total Harga: Rp ' . number_format($order->harga_akhir, 0, ',', '.');
-        }
-
-        // Simpan order dengan idempotency: replay POST bawa key sama → redirect ke record existing
+        // Satu transaksi DB: kuota di-lock, invoice di-generate saat simpan.
         try {
-            $order->save();
+            $result = DB::transaction(function () use ($request, $customer, $hargaObj) {
+                $berat = $request->kg;
+
+                // Lock baris kuota agar pengurangan tidak saling menimpa (lost update).
+                $kuota = $customer->kuotaLaundry()
+                    ->whereRaw('LOWER(TRIM(kategori)) = ?', [strtolower(trim($hargaObj->jenis))])
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($hargaObj->harga == 0 && (!$kuota || $kuota->kuota <= 0)) {
+                    return ['error' => 'Transaksi tidak bisa dilakukan karena harga Rp 0 dan tidak ada kuota tersedia.'];
+                }
+
+                $order = new Transaksi();
+                $order->idempotency_key  = $request->idempotency_key;
+                $order->tgl_transaksi    = Carbon::parse($request->tgl_transaksi);
+                $order->status_payment   = 'Pending';
+                $order->harga_id         = $request->harga_id;
+                $order->customer_id      = $customer->id;
+                $order->customer         = $customer->name;
+                $order->email_customer   = $customer->email;
+                $order->hari             = $request->hari;
+                $order->kg               = $berat;
+                $order->jumlah_lembar_baju = $request->jumlah_lembar_baju;
+                $order->karyawan_id      = $request->karyawan_id;
+                $order->catatan_admin    = $request->catatan_admin;
+                $order->jenis_pewangi    = $request->jenis_pewangi;
+
+                $status_payment = 'Pending';
+                $sisa_berbayar = $berat;
+                $ditanggung_kuota = 0;
+
+                // Kuota hanya boleh dipakai untuk layanan bernama "PAKET"
+                $bolehPakaiKuota = strtolower($hargaObj->nama) === 'paket';
+
+                if ($bolehPakaiKuota && $kuota && $kuota->kuota > 0) {
+                    if ($kuota->kuota >= $berat) {
+                        $kuota->kuota -= $berat;
+                        $kuota->save();
+                        $sisa_berbayar = 0;
+                        $ditanggung_kuota = $berat;
+                        $status_payment = 'Success';
+                    } else {
+                        $sisa_berbayar = $berat - $kuota->kuota;
+                        $ditanggung_kuota = $kuota->kuota;
+                        $kuota->kuota = 0;
+                        $kuota->save();
+                    }
+                }
+
+                $total_harga = $berat * $hargaObj->harga;
+
+                if ($sisa_berbayar == 0) {
+                    $order->harga_akhir = 0;
+                } else {
+                    $order->harga_akhir = $total_harga;
+                    if ($request->disc != NULL) {
+                        $disc = $request->disc; // Diskon dalam bentuk nominal langsung
+                        $order->disc = $disc;   // Simpan nilai diskon langsung (bukan persen)
+                        $order->harga_akhir = $total_harga - $disc;
+
+                        // Pastikan harga akhir tidak negatif
+                        if ($order->harga_akhir < 0) {
+                            $order->harga_akhir = 0;
+                        }
+                    }
+                }
+
+                $order->harga = $hargaObj->harga;
+                $order->jenis_pembayaran = $request->jenis_pembayaran;
+                $order->tgl = Carbon::now()->day;
+                $order->bulan = Carbon::now()->month;
+                $order->tahun = Carbon::now()->year;
+
+                // Override status jika admin pilih Lunas
+                if ($request->status_bayar === 'lunas') {
+                    $status_payment = 'Success';
+                }
+                $order->status_payment = $status_payment;
+
+                $sisa_bayar = $sisa_berbayar * $hargaObj->harga;
+
+                if ($sisa_berbayar == 0) {
+                    $order->info_pembayaran = 'Sudah Dibayar oleh Kuota';
+                } elseif ($sisa_berbayar < $berat) {
+                    $order->info_pembayaran = 'Sisa yang harus dibayar: Rp ' . number_format($sisa_bayar, 0, ',', '.');
+                } else {
+                    $order->info_pembayaran = 'Total Harga: Rp ' . number_format($order->harga_akhir, 0, ',', '.');
+                }
+
+                $this->saveWithUniqueInvoice($order);
+
+                return [
+                    'order'            => $order,
+                    'berat'            => $berat,
+                    'sisa_berbayar'    => $sisa_berbayar,
+                    'ditanggung_kuota' => $ditanggung_kuota,
+                    'sisa_bayar'       => $sisa_bayar,
+                ];
+            });
         } catch (QueryException $e) {
             $existing = Transaksi::where('idempotency_key', $request->idempotency_key)->first();
             if ($existing) {
@@ -204,6 +242,16 @@ class PelayananController extends Controller
             }
             throw $e;
         }
+
+        if (isset($result['error'])) {
+            return redirect()->back()->with('error', $result['error']);
+        }
+
+        $order            = $result['order'];
+        $berat            = $result['berat'];
+        $sisa_berbayar    = $result['sisa_berbayar'];
+        $ditanggung_kuota = $result['ditanggung_kuota'];
+        $sisa_bayar       = $result['sisa_bayar'];
 
         // Kirim notifikasi ke customer saat order dibuat
         if ($customer) {

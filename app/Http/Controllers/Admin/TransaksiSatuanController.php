@@ -9,6 +9,7 @@ use App\Notifications\StatusUpdateNotification;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Database\QueryException;
 
@@ -31,27 +32,8 @@ class TransaksiSatuanController extends Controller
         $customers = User::where('auth', 'Customer')->orderBy('name', 'asc')->get();
         $currentUser = Auth::user();
 
-        // === INVOICE UNIK PER HARI + VALIDASI DB ===
-        $today = date('Y-m-d');
-
-        $lastInvoice = TransaksiSatuan::whereDate('created_at', $today)
-            ->orderBy('id', 'DESC')
-            ->first();
-
-        $nextNumber = 1;
-
-        if ($lastInvoice && isset($lastInvoice->invoice)) {
-            $lastNumber = (int) substr($lastInvoice->invoice, -3);
-            $nextNumber = $lastNumber + 1;
-        }
-
-        // Loop sampai benar-benar tidak ada invoice duplikat
-        do {
-            $invoice = 'TS-' . date('ymd') . '-' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
-            $exists = TransaksiSatuan::where('invoice', $invoice)->exists();
-            if ($exists) $nextNumber++;
-        } while ($exists);
-        // =============================================
+        // Nomor invoice hanya PREVIEW. Nomor final dibuat saat store() agar anti-bentrok.
+        $invoice = $this->previewInvoice();
 
         $idempotencyKey = Str::uuid()->toString();
 
@@ -64,11 +46,47 @@ class TransaksiSatuanController extends Controller
         ));
     }
 
+    // Nomor invoice untuk preview di form (belum tentu jadi nomor final).
+    private function previewInvoice()
+    {
+        $last = TransaksiSatuan::whereDate('created_at', date('Y-m-d'))
+            ->orderBy('id', 'DESC')
+            ->first();
+
+        $next = ($last && $last->invoice) ? ((int) substr($last->invoice, -3)) + 1 : 1;
+
+        return 'TS-' . date('ymd') . '-' . str_pad($next, 3, '0', STR_PAD_LEFT);
+    }
+
+    // Buat transaksi satuan dengan nomor invoice yang di-generate saat submit + retry anti-bentrok.
+    private function createWithUniqueInvoice(array $data)
+    {
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $last = TransaksiSatuan::whereDate('created_at', date('Y-m-d'))
+                ->orderBy('id', 'DESC')
+                ->lockForUpdate()
+                ->first();
+
+            $next = ($last && $last->invoice) ? ((int) substr($last->invoice, -3)) + 1 : 1;
+            $data['invoice'] = 'TS-' . date('ymd') . '-' . str_pad($next, 3, '0', STR_PAD_LEFT);
+
+            try {
+                return TransaksiSatuan::create($data);
+            } catch (QueryException $e) {
+                if (($e->errorInfo[0] ?? null) === '23000') {
+                    continue;
+                }
+                throw $e;
+            }
+        }
+
+        throw new \RuntimeException('Gagal menghasilkan nomor invoice unik setelah beberapa percobaan.');
+    }
+
     public function store(Request $request)
     {
         $request->validate([
             'tgl_transaksi'       => 'required',
-            'invoice'             => 'required|unique:transaksi_satuans,invoice',
             'idempotency_key'     => 'required|uuid',
             'customer_id'         => 'required|exists:users,id',
             'karyawan_id'         => 'required|exists:karyawans,id',
@@ -98,23 +116,24 @@ class TransaksiSatuanController extends Controller
         $tgl = Carbon::parse($request->tgl_transaksi);
 
         try {
-            $transaksi = TransaksiSatuan::create([
-                'invoice'           => $request->invoice,
-                'idempotency_key'   => $request->idempotency_key,
-                'karyawan_id'       => $request->karyawan_id,
-                'customer_id'       => $customer->id,
-                'customer'          => $customer->name,
-                'email_customer'    => $customer->email,
-                'tgl_transaksi'     => $tgl,
-                'status_order'      => 'Antrian',
-                'status_payment'    => $request->status_bayar === 'lunas' ? 'Success' : 'Pending',
-                'jenis_pembayaran'  => $request->jenis_pembayaran,
-                'tgl'               => Carbon::now()->day,
-                'bulan'             => Carbon::now()->month,
-                'tahun'             => Carbon::now()->year,
-                'catatan_admin'     => $request->catatan_admin,
-                'jenis_pewangi'     => $request->jenis_pewangi,
-            ]);
+            $transaksi = DB::transaction(function () use ($request, $customer, $tgl) {
+                return $this->createWithUniqueInvoice([
+                    'idempotency_key'   => $request->idempotency_key,
+                    'karyawan_id'       => $request->karyawan_id,
+                    'customer_id'       => $customer->id,
+                    'customer'          => $customer->name,
+                    'email_customer'    => $customer->email,
+                    'tgl_transaksi'     => $tgl,
+                    'status_order'      => 'Antrian',
+                    'status_payment'    => $request->status_bayar === 'lunas' ? 'Success' : 'Pending',
+                    'jenis_pembayaran'  => $request->jenis_pembayaran,
+                    'tgl'               => Carbon::now()->day,
+                    'bulan'             => Carbon::now()->month,
+                    'tahun'             => Carbon::now()->year,
+                    'catatan_admin'     => $request->catatan_admin,
+                    'jenis_pewangi'     => $request->jenis_pewangi,
+                ]);
+            });
         } catch (QueryException $e) {
             $existing = TransaksiSatuan::where('idempotency_key', $request->idempotency_key)->first();
             if ($existing) {
